@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite the manuscript."
+title: "The Recovery Graph: A Formal Model for Queryable Operational Continuity in Cloud-Native Systems"
+type: article
+authors:
+  - given-names: Obede
+    family-names: Bessa
+    email: obedebessa@gmail.com
+repository-code: "https://github.com/obedebessa/recovery-graph"
+version: 1.0.0
+date-released: 2026-08-06
+keywords:
+  - operational continuity
+  - disaster recovery
+  - site reliability engineering
+  - dependency graphs
+  - cloud governance
+  - digital resilience
+  - microservices
+  - graph queries
+

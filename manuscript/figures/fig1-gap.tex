@@ -1,0 +1,43 @@
+% Figure 1: the restore-recover gap
+\begin{tikzpicture}[x=1.0cm,y=1cm]
+  % gap band
+  \begin{scope}[on background layer]
+    \fill[rgcrit!7] (4.6,-0.15) rectangle (11.6,3.15);
+  \end{scope}
+  \node[font=\footnotesize\itshape,text=rgcrit!80!black] at (8.1,2.98)
+    {the restore--recover gap: unmodelled, unmeasured, unassisted};
+
+  % incident marker
+  \draw[rgcrit,line width=1.2pt] (0.5,-0.15) -- (0.5,3.15);
+  \node[font=\scriptsize,text=rgcrit,anchor=south] at (0.5,3.18) {incident};
+
+  % ---------- infrastructure lane ----------
+  \node[font=\footnotesize\bfseries,anchor=west,text=rgsec] at (-2.55,2.35) {infrastructure};
+  \node[font=\scriptsize,anchor=west,text=rgsec] at (-2.55,2.05) {(\emph{restore})};
+  \draw[rggrid,line width=0.4pt] (-0.1,2.2) -- (12.6,2.2);
+  \fill[rgsvc!25,draw=rgsvc,thick,rounded corners=1.5pt] (0.5,2.0) rectangle (4.6,2.4);
+  \node[font=\scriptsize,text=rgink] at (2.55,2.2) {re-provision, redeploy (IaC, GitOps)};
+  \fill[rgsvc!60,draw=rgsvc,thick,rounded corners=1.5pt] (4.6,2.0) rectangle (12.3,2.4);
+  \node[font=\scriptsize,text=white] at (8.45,2.2) {resources present, workloads \emph{Running} $\;(\sigma \geq \lP)$};
+
+  % ---------- operational lane ----------
+  \node[font=\footnotesize\bfseries,anchor=west,text=rgsec] at (-2.55,0.95) {operational};
+  \node[font=\scriptsize,anchor=west,text=rgsec] at (-2.55,0.65) {capability (\emph{recover})};
+  \draw[rggrid,line width=0.4pt] (-0.1,0.8) -- (12.6,0.8);
+  \fill[rgres!20,draw=rgres,thick,rounded corners=1.5pt] (0.5,0.6) rectangle (11.6,1.0);
+  \node[font=\scriptsize,text=rgink] at (6.05,0.8) {data restore \& replay $\cdot$ credentials \& sessions $\cdot$ ordered warm-up $\cdot$ capacity-gated ramp $\cdot$ validation};
+  \fill[rgevi!70,draw=rgevi!80!black,thick,rounded corners=1.5pt] (11.6,0.6) rectangle (12.3,1.0);
+  \node[font=\scriptsize,text=white] at (11.95,0.8) {$\lO$};
+
+  % restored / operational markers
+  \draw[rgink!60,densely dashed] (4.6,-0.15) -- (4.6,3.15);
+  \draw[rgink!60,densely dashed] (11.6,-0.15) -- (11.6,3.15);
+
+  % ---------- time axis ----------
+  \draw[-{Stealth[length=2mm]},rgaxis,semithick] (-0.1,-0.5) -- (12.75,-0.5);
+  \foreach \x/\l in {0.5/$t_0$,4.6/$t_1$,11.6/$t_2$}{
+    \draw[rgaxis] (\x,-0.44) -- (\x,-0.56);
+    \node[font=\scriptsize,text=rgsec,anchor=north] at (\x,-0.58) {\l};}
+  \node[font=\scriptsize,text=rgsec,anchor=north] at (2.55,-0.58) {restore time};
+  \node[font=\scriptsize,text=rgsec,anchor=north] at (8.1,-0.58) {\textbf{recovery time} (what the business experiences)};
+\end{tikzpicture}

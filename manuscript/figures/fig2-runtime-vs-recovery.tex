@@ -1,0 +1,55 @@
+% Figure 2: runtime dependency graph vs recovery dependency graph (same slice)
+\begin{tikzpicture}
+  % ================= panel (a): runtime call graph =================
+  \begin{scope}
+    \node[font=\footnotesize\bfseries,text=rgsec] at (1.9,4.05) {(a) runtime service graph $\GS$};
+    \node[svc] (fe)  at (1.9,3.3)  {frontend};
+    \node[svc] (co)  at (0.7,2.05) {checkout};
+    \node[svc] (ca)  at (3.1,2.05) {cart};
+    \node[svc] (pa)  at (0.7,0.8)  {payment};
+    \node[svc] (rd)  at (3.1,0.8)  {redis-cart};
+    \draw[harde] (fe) -- (co);
+    \draw[harde] (fe) -- (ca);
+    \draw[harde] (co) -- (pa);
+    \draw[harde] (co) -- (ca);
+    \draw[harde] (ca) -- (rd);
+    \node[font=\scriptsize,text=rgsec,align=center] at (1.9,0.05)
+      {observed call edges (tracing)\\ \emph{arrow: caller $\rightarrow$ callee}};
+  \end{scope}
+
+  % ================= panel (b): recovery graph slice =================
+  \begin{scope}[xshift=6.4cm]
+    \node[font=\footnotesize\bfseries,text=rgsec] at (3.6,4.05) {(b) Recovery Graph slice $\GR$};
+    \node[svc] (fe2)  at (2.6,3.3)  {frontend};
+    \node[svc] (co2)  at (1.4,2.05) {checkout};
+    \node[svc] (ca2)  at (3.8,2.05) {cart};
+    \node[svc] (pa2)  at (1.4,0.8)  {payment};
+    \node[svc] (rd2)  at (3.8,0.8)  {redis-cart};
+    \node[res,seed] (reg) at (6.15,3.3) {registry};
+    \node[res,seed] (bak) at (6.15,0.8) {backup};
+    \node[res,seed] (sec) at (-0.75,2.05){secrets};
+    \node[res,seed] (pay) at (-0.75,0.8) {pay-sandbox};
+    \draw[harde] (fe2) -- (ca2);
+    \draw[verife] (fe2) -- node[elab,pos=0.45]{v\,:\,$\lO$} (co2);
+    \draw[harde] (co2) -- (pa2);
+    \draw[harde] (co2) -- (ca2);
+    \draw[harde] (ca2) -- node[elab,pos=0.5]{d} (rd2);
+    \draw[harde] (rd2) -- node[elab,pos=0.5]{d} (bak);
+    \draw[harde] (pa2) -- node[elab,pos=0.45]{a} (sec);
+    \draw[verife] (pa2) -- node[elab,pos=0.45]{v} (pay);
+    \draw[harde] (ca2) -- (reg);
+    \draw[harde] (fe2) -- (reg);
+    \node[font=\scriptsize,text=rgres!80!black,align=center] at (6.15,2.05)
+      {\emph{(every service}\\ \emph{$\rightarrow$ registry, k8s)}};
+    \node[font=\scriptsize,text=rgsec,align=center] at (2.6,0.05)
+      {declared recovery dependencies\\ \emph{arrow: dependent $\rightarrow$ prerequisite (``requires'')}};
+  \end{scope}
+
+  % legend
+  \node[font=\scriptsize,text=rgsec,anchor=west] at (-0.4,-0.85)
+    {\tikz{\node[svc,scale=0.75]{s};}\, service \quad
+     \tikz{\node[res,seed,scale=0.75]{r};}\, recovery resource (seed) \quad
+     \tikz{\draw[harde](0,0)--(0.55,0);}\, hard \quad
+     \tikz{\draw[verife](0,0)--(0.55,0);}\, verify \quad
+     d/a/v = data/authz/verify kind};
+\end{tikzpicture}

@@ -1,0 +1,80 @@
+\section{Evaluation design and feasibility illustration}
+\label{sec:eval}
+
+We deliberately separate what this paper \emph{demonstrates} from what must be \emph{measured}. The model, algorithms, and metrics are demonstrated: they are formally specified, implemented, and exercised end-to-end on a fully computed example (Sec.~\ref{sec:feasibility}). The empirical claims---that real systems can be modelled at acceptable cost, that recovery structure diverges from runtime structure at scale, that graph-derived plans and estimates predict observed recovery, and that queryability helps humans---are stated here as a registered-style design with hypotheses, baselines, and analysis plans, and no results are reported or implied. We consider this the honest division for a model paper; the design is specific enough to be executed, and to be criticised.
+
+\subsection{Research questions and subjects}
+\label{sec:rqs}
+
+\begin{description}[leftmargin=1.4em,itemsep=2pt]
+\item[RQ1 (Expressiveness and cost).] Can practising engineers capture the recovery procedures of real cloud-native systems as well-formed Recovery Graphs, and at what modelling cost?
+\item[RQ2 (Divergence).] How large, in real systems, is the divergence between recovery dependency structure and runtime dependency structure that Prop.~\ref{prop:incomparable} establishes in principle?
+\item[RQ3 (Predictive utility).] Do graph-derived plans, $\rto$ estimates, and blocking-centrality rankings predict observed recovery behaviour under injected failures?
+\item[RQ4 (Queryability and governance value).] Do operators answer recovery-planning and audit questions faster and more accurately with a queryable Recovery Graph than with conventional artifacts?
+\end{description}
+
+\noindent\textbf{Subjects.} Three open-source microservice systems spanning an order of magnitude in size: Online Boutique (11 services; Google's microservices demo), the DeathStarBench social network ($\sim$30 services) \citep{gan2019deathstar}, and TrainTicket ($\sim$41 services), the largest widely used microservice benchmark \citep{zhou2021fault}---each deployed on Kubernetes with the platform resources of Sec.~\ref{sec:feasibility} (registry, IaC repository, secret store, backup store, DNS, observability, external sandboxes). Two industrial case studies under non-disclosure complement the benchmarks for RQ1--RQ2. Fault injection uses standard chaos tooling \citep{litmuschaos}; runtime graphs are mined from OpenTelemetry traces under generated load.
+
+\subsection{RQ1: modelling feasibility and cost}
+\label{sec:rq1}
+For each subject, two engineers \emph{independently} author $\GR$ from documentation, IaC, deployment manifests, and interviews, using the reference implementation's schema. Measures: person-hours per service; $|V|$, $|\ER|$, $\rdc$ achieved; well-formedness findings encountered (cycles, unseeded sources); and \emph{inter-modeller agreement}---per-edge agreement on $\gamma$ classification (Cohen's $\kappa$) and graph edit distance between the two authored graphs, because a model that two competent engineers instantiate very differently is a weak measurement instrument regardless of its formal virtues. Pre-registered expectation: tier-1-scope modelling cost below one person-week per subject; $\kappa \geq 0.6$ on hard/soft/irrelevant classification. Disagreements are themselves data: each is resolved in conference and coded by cause (missing knowledge vs.\ ambiguous semantics vs.\ error).
+
+\subsection{RQ2: structural divergence}
+\label{sec:rq2}
+From the traced runtime graph $D$ and the authored $\ER$ we compute: the recovery-only ratio $\rho$; precision/recall of $D$ as a predictor of the hard recovery relation; the number of \emph{inversions} (pairs where runtime direction and recovery order disagree, e.g.\ queue consumers that must precede producers); and node-set divergence $|R| / |V|$. Pre-registered hypothesis H2: $\rho \geq 0.5$ in every subject---i.e.\ at least half of recovery knowledge is invisible to runtime observability. H2 is directly falsifiable and its refutation would be a substantive finding against the paper's motivation.
+
+\subsection{RQ3: predictive utility under injected failures}
+\label{sec:rq3}
+\textbf{Scenarios} (per subject): S1 total cluster loss; S2 stateful-store loss with restore from backup; S3 secret/credential-store outage; S4 registry outage; S5 partial loss with constrained capacity (the metastability-prone case). \textbf{Conditions}: (B0) \emph{restore-only}: declarative resync of all workloads at once---the level of automation today's platforms provide; (B1) \emph{expert runbook}: recovery executed by an engineer following the subject's written runbook, authored before graph modelling to avoid contamination; (B2) \emph{graph-guided}: recovery executed by following the plan of Algorithm~\ref{alg:schedule}. \textbf{Measures}: time-to-$\lO$ per service against probe-defined validation; ordering violations (a service attempting recovery before a hard prerequisite reached its threshold); failed-start and restart counts; occurrence of retry-storm signatures; and, for B2, the prediction error of $\rto$ (absolute percentage error per service) and whether the empirically binding constraint matches the computed critical path and top blocking-centrality nodes. Each (scenario, condition) cell is run $\geq 10$ times; analysis uses paired nonparametric tests with effect sizes and confidence intervals; durations $d_v(\ell)$ for prediction are calibrated on runs disjoint from those used for error measurement, and the evidence-decay sensitivity analysis of Sec.~\ref{sec:evidence} is performed here. We note explicitly what B2 can and cannot show: an advantage over B0 tests the value of \emph{ordering and gating knowledge}; an advantage over B1 tests the value of its \emph{formalisation}; neither tests authoring cost, which is RQ1's subject.
+
+\subsection{RQ4: human queryability and governance value}
+\label{sec:rq4}
+A within-subject controlled study with $n \geq 16$ professional SREs/platform engineers. Each participant answers a battery of twelve recovery-planning and audit questions (of the kinds listed in Sec.~\ref{sec:queries}: prerequisite order for a target, unready tier-1 services, best-case recovery time, single points of recovery failure, expiring evidence, counterfactual loss of a resource) under two counterbalanced conditions: (A) the subject's runbooks plus a CMDB-style inventory export; (B) the Recovery Graph console with the query catalogue of \ref{app:queries}. Measures: time to answer, answer accuracy against gold labels computed from the graph, and NASA-TLX workload; a governance sub-study has compliance practitioners map required DORA/ISO 22301 evidence items to artifacts obtainable in each condition and rate sufficiency on a rubric. Learning effects are controlled by question-set rotation; the study protocol requires ethics approval and reports demographics and expertise moderators.
+
+\subsection{Feasibility illustration: a fully computed example}
+\label{sec:feasibility}
+
+To demonstrate that the machinery is executable end-to-end---and to fix intuitions with concrete numbers---we model Online Boutique from its public architecture, together with eight platform resources, and compute every quantity in this paper with the reference implementation. The scenario (durations, evidence ages, policies) is constructed and clearly labelled as such: the numbers below are \emph{computed outputs of the model on a declared instance}, not measurements of a production system, and they validate executability, not effectiveness.
+
+The instance has $|V| = 19$ ($11$ services, $8$ resources), $|\ER| = 57$ typed edges, and a traced runtime graph of $|D| = 15$ call edges. Figure~\ref{fig:rgexample} shows the graph with computed per-node confidence and readiness; Fig.~\ref{fig:schedule} shows the computed earliest-completion schedule. Table~\ref{tab:examplemetrics} reports the six metrics.
+
+\begin{figure*}[t]
+  \centering
+  \resizebox{\textwidth}{!}{\input{figures/fig3-rg-example}}
+  \caption{Recovery Graph of the worked example (Online Boutique services, blue; platform resources, orange; seeds double-bordered). Arrows read ``requires''; the red overlay is the computed critical path to \textsf{frontend}. Per-node confidence $C$ and readiness dots are computed from the declared evidence scenario. Four long-range edges and the eleven \textsf{verify}$\to$\textsf{obs} edges are omitted for legibility (full instance in the artifact).}
+  \label{fig:rgexample}
+\end{figure*}
+
+\begin{figure*}[t]
+  \centering
+  \input{figures/fig6-schedule}
+  \caption{Computed earliest-completion recovery schedule for the worked example (Algorithm~\ref{alg:schedule}; six non-critical rows omitted). Hatched intervals are gate waits---e.g.\ \textsf{frontend} is functional at 105\,min but cannot be certified operational until \textsf{checkout} validates at 115\,min. $\rto(\textsf{frontend}) = 130$\,min; the critical chain runs \textsf{iac} $\to$ \textsf{k8s} $\to$ \textsf{redis-cart} $\to$ \textsf{cart} $\to$ \textsf{checkout} $\to$ \textsf{frontend}, i.e.\ through the stateful store, not through the largest or most-called service.}
+  \label{fig:schedule}
+\end{figure*}
+
+\begin{table*}[t]
+\centering\small
+\caption{Metric suite computed on the worked example (output of \texttt{rgkit}).}
+\label{tab:examplemetrics}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Metric} & \textbf{Value} & \textbf{Metric} & \textbf{Value} \\
+\midrule
+$\rpl(\textsf{frontend})$ & $6$ hops / $130$\,min & $\rri$ (weighted) & $0.844$ \\
+$\rcs$ weighted mean & $0.353$ & $\rec$ (weighted) & $0.922$ \\
+$\rcs$ tier-1 minimum & $0.002$ & density $\delta$ & $0.167$ \\
+recovery-only ratio $\rho$ & $0.754$ & $\rdc$ & $0.867$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Five observations, each traceable to a figure or table row. \emph{(i)} Three quarters of the recovery edges ($\rho = 0.754$) have no counterpart in the runtime graph---the registry, IaC, backup, secrets, and sandbox dependencies that tracing cannot see---giving a first concrete magnitude for RQ2's hypothesis. \emph{(ii)} The critical path runs through the stateful store and its backup, not through the most-connected service; the largest single contributor to $\rto$ is cluster rebuild followed by data restore (Fig.~\ref{fig:schedule}). \emph{(iii)} The evidence scenario contains one nearly expired credential check on the payment sandbox ($\varphi = 0.07$); the weakest-link semantics propagates it to $C(\textsf{payment}) = 0.02$, $C(\textsf{checkout}) = 0.01$, $C(\textsf{frontend}) \approx 0.002$---the model's way of saying that the checkout path's recovery is, today, an assumption resting on a credential nobody has re-validated. The weighted mean $\rcs = 0.353$ conceals this; the mandated tier-1 minimum exposes it (Sec.~\ref{sec:metrics}). \emph{(iv)} $\rri = 0.844$ with exactly three unready nodes (\textsf{payment}, \textsf{email}, \textsf{paysandbox}), each with the missing evidence class identified---the console query of Fig.~\ref{fig:query} returns precisely these. \emph{(v)} A pathological variant that stores the cluster-rebuild runbook in an in-cluster wiki is rejected by the consistency checker with the two-node cycle $\{\textsf{k8s}, \textsf{wiki}\}$ reported at action granularity---the Meta-2021/runbook-in-the-wiki pattern caught at authoring time rather than at 3\,a.m.
+
+\subsection{Threats to validity}
+\label{sec:threats}
+
+\emph{Construct.} Probe-defined $\lO$ operationalises ``operational''; a service can pass probes yet fail users, so RQ3's validation suites must be reviewed by subject-system maintainers. $C$ is an index, not a probability (Remark~\ref{rem:notprob}); any reading of RQ3's calibration analysis as risk quantification would exceed the construct. Assumption A1 idealises away mid-recovery regressions; scenario S5 exists to probe where the idealisation breaks. \emph{Internal.} Authors of the model must not author the runbook baseline (B1) or the gold labels for RQ4; independent authorship and blinding are specified above. Graph authoring by paper authors would bias RQ1 favourably; hence external modellers and agreement statistics. Duration calibration and prediction-error measurement use disjoint runs. \emph{External.} Benchmarks are smaller and cleaner than enterprise estates; all subjects are Kubernetes-based; public postmortems over-represent large operators (Sec.~\ref{sec:motivation}). The industrial case studies mitigate but do not remove this; claims are scoped to cloud-native systems of the studied kind. \emph{Conclusion.} Chaos runs are high-variance; $\geq 10$ repetitions, nonparametric paired analysis, and reported effect sizes with confidence intervals are specified; the user study's $n$ bounds detectable effects, and we commit to reporting confidence intervals rather than binary significance verdicts.
+
+\subsection{Reproducibility and artifact availability}
+\label{sec:repro}
+The reference implementation (\texttt{rgkit}: model, checks, algorithms, metrics; $\sim$500 lines of Python over \texttt{networkx}), the full worked-example instance (nodes, edges, durations, evidence scenario), the pathological variant, and the scripts that generated every number and figure datum in Secs.~\ref{sec:feasibility} and \ref{sec:metrics} are publicly available at \url{https://github.com/obedebessa/recovery-graph}; a self-test verifies the stated formal properties (monotonicity, weakest-link, $\rto$ monotonicity, cycle detection) on the example. The evaluation design's execution assets---subject-system manifests, chaos scenario specifications, probe suites, and study materials---are structured for archival with a DOI upon execution. No proprietary data is required to reproduce anything reported in this paper.

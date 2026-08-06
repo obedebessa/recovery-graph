@@ -1,0 +1,37 @@
+% Figure 4: capability levels and guarded recovery transitions
+\begin{tikzpicture}[x=1cm,y=1cm,
+  lev/.style={draw=rgsvc,thick,fill=rgsvc!10,circle,minimum size=26pt,font=\small\bfseries,text=rgink}]
+  \node[lev,fill=rgcrit!12,draw=rgcrit] (D) at (0,0)   {$\lD$};
+  \node[lev] (P) at (3.4,0) {$\lP$};
+  \node[lev] (F) at (6.8,0) {$\lF$};
+  \node[lev,fill=rgevi!14,draw=rgevi!80!black] (O) at (10.2,0) {$\lO$};
+
+  \draw[harde] (D) -- node[above,font=\scriptsize,align=center,text=rgink]
+    {$a_{\lP}$: provision\\[-1pt]{\color{rgsec}[start-gates hold]}} (P);
+  \draw[harde] (P) -- node[above,font=\scriptsize,align=center,text=rgink]
+    {$a_{\lF}$: functionalise\\[-1pt]{\color{rgsec}[self-checks pass]}} (F);
+  \draw[harde] (F) -- node[above,font=\scriptsize,align=center,text=rgink]
+    {$a_{\lO}$: validate\\[-1pt]{\color{rgsec}[complete-gates hold]}} (O);
+
+  \node[font=\scriptsize,text=rgsec,align=center] at (0,-0.85) {unavailable};
+  \node[font=\scriptsize,text=rgsec,align=center] at (3.4,-0.85) {\emph{restored}:\\[-2pt]infrastructure present};
+  \node[font=\scriptsize,text=rgsec,align=center] at (6.8,-0.85) {functional:\\[-2pt]serves (possibly degraded)};
+  \node[font=\scriptsize,text=rgsec,align=center] at (10.2,-0.85) {\emph{recovered}:\\[-2pt]validated capability};
+
+  % evidence emission
+  \draw[-{Stealth[length=1.8mm]},rgevi!80!black,densely dotted,semithick]
+    (8.5,0.62) to[out=60,in=180] (9.9,1.25);
+  \node[font=\scriptsize,text=rgevi!60!black,anchor=west] at (9.95,1.25)
+    {emits evidence $\mathit{ev}(a)$};
+
+  % degradation back-edges
+  \draw[-{Stealth[length=1.8mm]},rgsec!70,dashed] (O.south) to[out=-135,in=-45] node[below,font=\scriptsize,text=rgsec]{SLO breach / drift} (F.south);
+  \draw[-{Stealth[length=1.8mm]},rgsec!70,dashed] (F.south) to[out=-125,in=-55] (D.south);
+  \node[font=\scriptsize,text=rgsec] at (3.4,-1.75) {failure};
+
+  % restore/recover brace
+  \draw[decorate,decoration={brace,amplitude=4pt},rgsec] (0.0,1.28) -- (3.4,1.28)
+    node[midway,above=3pt,font=\scriptsize,text=rgsec]{\textsc{restore}};
+  \draw[decorate,decoration={brace,amplitude=4pt},rgsec] (3.75,1.28) -- (10.2,1.28)
+    node[midway,above=3pt,font=\scriptsize,text=rgsec]{\textsc{recover}};
+\end{tikzpicture}

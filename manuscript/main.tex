@@ -1,0 +1,179 @@
+% =============================================================================
+% The Recovery Graph: A Formal Model for Queryable Operational Continuity
+% in Cloud-Native Systems
+% IJCA submission manuscript using the official ijcaArticle class.
+% =============================================================================
+\documentclass{ijcaArticle}
+
+% IJCA's published template uses A4 stock. The class predates XeTeX and
+% otherwise emits a Letter-size papersize special under Tectonic.
+\setlength{\paperwidth}{210mm}
+\setlength{\paperheight}{297mm}
+\special{papersize=210mm,297mm}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[expansion=false]{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,multirow,tabularx,threeparttable,array}
+\usepackage{graphicx}
+\usepackage[svgnames]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,fit,backgrounds,decorations.pathreplacing,patterns}
+\usepackage{enumitem}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{listings}
+\usepackage{wasysym}
+\usepackage{xurl}
+\hypersetup{
+  hidelinks,
+  pdftitle={The Recovery Graph: A Formal Model for Queryable Operational Continuity in Cloud-Native Systems},
+  pdfauthor={Obede Bessa},
+  pdfsubject={IJCA submission manuscript},
+  pdfkeywords={operational continuity, disaster recovery, site reliability engineering, dependency graphs, cloud governance, digital resilience, microservices, graph queries}
+}
+% Compatibility switch referenced by the official 2012 IJCA class.
+\newif\ifitalicenv
+\providecommand{\qedhere}{\qed}
+\setcounter{secnumdepth}{2}
+
+% The IJCA class expects table captions to be passed through \tbl.  This
+% manuscript uses standard LaTeX table floats, so give those captions the
+% current float width while retaining IJCA's typography.
+\makeatletter
+\long\def\@makecaption#1#2{%
+  \ifx\FigName\@captype
+    \vskip 7.3pt
+    \setbox\@tempboxa\hbox{\figcaptionfont{#1}.\hskip7.3pt\relax #2\par}%
+    \ifdim\wd\@tempboxa>\hsize
+      \figcaptionfont{#1}.\hskip7.3pt\relax #2\par
+    \else
+      \centerline{\box\@tempboxa}%
+    \fi
+  \else
+    \setbox\tbbox=\vbox{{\tablenumfont #1}\ {\tablecaptionfont #2\par}}%
+    \setbox\@tempboxa\hbox{{\tablenumfont #1}\ {\tablecaptionfont #2}\vphantom{jgq}}%
+    \ifdim\wd\@tempboxa>\hsize
+      \box\tbbox
+    \else
+      \centerline{\box\@tempboxa}%
+    \fi
+    \vskip\belowcaptionskip
+  \fi}
+\makeatother
+
+% ------------------------------- palette -------------------------------------
+% Print-safe palette validated for CVD separation and normal-vision floor
+\definecolor{rgsvc}{HTML}{2A78D6}   % services (categorical slot 1)
+\definecolor{rgres}{HTML}{EB6834}   % recovery resources (slot 2)
+\definecolor{rgevi}{HTML}{1BAF7A}   % evidence / verification (slot 3)
+\definecolor{rgcrit}{HTML}{D03B3B}  % status: critical (critical path, stale)
+\definecolor{rgwarn}{HTML}{FAB219}  % status: warning (near-expiry)
+\definecolor{rggood}{HTML}{0CA30C}  % status: good (fresh evidence)
+\definecolor{rgink}{HTML}{0B0B0B}
+\definecolor{rgsec}{HTML}{52514E}
+\definecolor{rggrid}{HTML}{E1E0D9}
+\definecolor{rgaxis}{HTML}{C3C2B7}
+
+% ------------------------------ tikz styles ----------------------------------
+\tikzset{
+  svc/.style={draw=rgsvc,thick,fill=rgsvc!12,rounded corners=2.5pt,
+              minimum height=16pt,inner sep=3.5pt,font=\footnotesize,text=rgink},
+  res/.style={draw=rgres,thick,fill=rgres!12,
+              minimum height=16pt,inner sep=3.5pt,font=\footnotesize,text=rgink},
+  seed/.style={double,double distance=1.1pt},
+  ghost/.style={draw=rgaxis,thick,fill=white,rounded corners=2.5pt,
+              minimum height=16pt,inner sep=3.5pt,font=\footnotesize,text=rgsec},
+  harde/.style={-{Stealth[length=2.2mm]},semithick,draw=rgink!75},
+  softe/.style={-{Stealth[length=2.2mm]},semithick,dashed,draw=rgsec!85},
+  verife/.style={-{Stealth[length=2.2mm]},semithick,densely dotted,draw=rgevi!90!black},
+  crite/.style={-{Stealth[length=2.6mm]},line width=1.5pt,draw=rgcrit},
+  elab/.style={font=\scriptsize,fill=white,inner sep=1pt,text=rgsec},
+  wave/.style={rounded corners=6pt,draw=rgcrit!60,dashed,thick},
+  okdot/.style={circle,fill=rggood,inner sep=1.4pt},
+  baddot/.style={circle,fill=rgcrit,inner sep=1.4pt},
+  warndot/.style={circle,fill=rgwarn,inner sep=1.4pt},
+}
+
+% ------------------------------ listings -------------------------------------
+\lstdefinelanguage{Cypher}{
+  morekeywords={MATCH,WHERE,RETURN,WITH,ORDER,BY,DESC,ASC,AND,OR,NOT,AS,IN,
+                COUNT,COLLECT,DISTINCT,UNWIND,CALL,YIELD,date,duration,EXISTS,SUM},
+  sensitive=false, morecomment=[l]{//}, morestring=[b]', morestring=[b]"
+}
+\lstset{basicstyle=\ttfamily\footnotesize,keywordstyle=\bfseries\color{rgsvc!80!black},
+  commentstyle=\color{rgsec},stringstyle=\color{rgevi!70!black},
+  frame=single,rulecolor=\color{rgaxis},framesep=4pt,xleftmargin=6pt,
+  breaklines=true,showstringspaces=false,captionpos=b,
+  numbers=none,aboveskip=8pt,belowskip=6pt}
+
+% The IJCA class defines theorem, proposition, definition, example, and proof.
+\newtheorem{corollary}{Corollary}
+\newtheorem{remark}{Remark}
+
+% ------------------------------ macros ---------------------------------------
+\newcommand{\GS}{G_{\mathrm{S}}}
+\newcommand{\GR}{G_{\mathrm{R}}}
+\newcommand{\ER}{E_{\mathrm{R}}}
+\newcommand{\Lev}{\mathcal{L}}
+\newcommand{\lP}{\mathsf{P}}
+\newcommand{\lF}{\mathsf{F}}
+\newcommand{\lO}{\mathsf{O}}
+\newcommand{\lD}{\mathsf{D}}
+\newcommand{\rto}{\mathrm{RTO}_{\mathrm{est}}}
+\newcommand{\rpl}{\mathrm{RPL}}
+\newcommand{\rcs}{\mathrm{RCS}}
+\newcommand{\rri}{\mathrm{RRI}}
+\newcommand{\rec}{\mathrm{REC}}
+\newcommand{\rdc}{\mathrm{RDC}}
+\newcommand{\Eloc}{E_{\mathrm{loc}}}
+\newcommand{\hardpre}{\mathrm{pre}_{\mathrm{h}}}
+\newcommand{\softpre}{\mathrm{pre}_{\mathrm{s}}}
+\newcommand{\closure}{\mathrm{cl}}
+\newcommand{\resttitle}{The Recovery Graph: A Formal Model for Queryable Operational Continuity in Cloud-Native Systems}
+
+\emergencystretch=2em
+\hyphenation{query-able recover-abil-ity}
+
+\setcounter{page}{1}
+\ijcaVolume{*}
+\ijcaNumber{*}
+\ijcaYear{2026}
+\ijcaMonth{August}
+
+\title{\resttitle}
+\author{
+  \large Obede Bessa \\[-3pt]
+  \normalsize Independent Researcher \\[-3pt]
+  \normalsize \texttt{obedebessa@gmail.com}
+}
+
+\begin{document}
+\terms{Algorithms, Reliability, Performance}
+\keywords{operational continuity, disaster recovery, site reliability engineering, dependency graphs, cloud governance, digital resilience, microservices, graph queries}
+\maketitle
+
+\begin{abstract}
+\noindent
+Cloud-native platforms have made the reconstruction of infrastructure routine: declarative configuration, GitOps pipelines, and reconciling controllers can re-create clusters, workloads, and network state with little human intervention. Yet public incident analyses repeatedly show that organisations whose infrastructure is fully \emph{restored} remain unable to \emph{recover}: services come back as running processes but not as operating capabilities, because the knowledge required to regain operational capability---recovery-specific dependencies, data-restoration order, credential re-establishment, capacity-gated ramp-up, and validation criteria---is tacit, unverified, and unqueryable. This paper formalises the distinction between \emph{restore} (re-creating infrastructure) and \emph{recover} (regaining operational capability) and introduces the \emph{Recovery Graph}, a typed, attributed, evidence-carrying graph that makes operational recovery knowledge a first-class, machine-checkable artifact. We define the model's semantics---capability levels, recovery dependency edges, guarded recovery transitions, known-good evidence, readiness, and confidence---and give polynomial-time algorithms for recovery path computation, earliest-completion scheduling (yielding principled recovery time estimates), blocking-centrality analysis, circular-bootstrap detection, and counterfactual queries. Six metrics (recovery path length, recovery confidence score, recovery readiness index, recovery evidence completeness, recovery graph density, and recovery dependency coverage) turn recovery posture into a measurable, auditable quantity, aligning with emerging regulatory demands for demonstrable operational resilience. We show that the model maps directly onto standard property-graph query languages, present a reference architecture for populating and governing the graph, and report a computed feasibility illustration on a model of a widely used open-source microservice system, in which 75\% of recovery dependencies are invisible to runtime observability. A registered evaluation design with four research questions, explicit threats to validity, and an open reference implementation completes the paper.
+\end{abstract}
+
+\input{sections/01-intro}
+\input{sections/02-motivation}
+\input{sections/03-model}
+\input{sections/04-queries}
+\input{sections/05-metrics}
+\input{sections/06-architecture}
+\input{sections/07-evaluation}
+\input{sections/08-related}
+\input{sections/09-discussion}
+\input{sections/10-conclusion}
+
+\bibliographystyle{ijcaArticle}
+\bibliography{refs}
+
+\appendix
+\input{sections/appendix}
+
+\end{document}

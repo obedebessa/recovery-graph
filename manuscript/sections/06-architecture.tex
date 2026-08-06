@@ -1,0 +1,34 @@
+\section{Reference architecture and governance}
+\label{sec:architecture}
+
+A model that must be hand-maintained from scratch will not survive contact with an organisation. This section describes how a Recovery Graph is populated from artifacts that already exist, kept consistent, and embedded in governance---the sense in which it is a \emph{governance artifact} and not merely another infrastructure graph. Figure~\ref{fig:architecture} shows the reference architecture.
+
+\begin{figure*}[t]
+  \centering
+  \resizebox{\textwidth}{!}{\input{figures/fig8-architecture}}
+  \caption{Reference architecture. Producers feed structure and evidence into the graph platform; consistency checking runs continuously; consumers query. The dashed loop is the system's epistemic engine: executing plans and drills is what refreshes known-good evidence.}
+  \label{fig:architecture}
+\end{figure*}
+
+\subsection{Populating the graph}
+\label{sec:populating}
+
+\paragraph{Structure.} Nodes and candidate edges are harvested, not invented. Service inventory comes from the deployment platform and service catalogue \citep{backstage}; runtime edges $D$ from tracing \citep{sigelman2010dapper}; resource nodes and \textsf{order} edges from parsing IaC and pipeline definitions (image references imply registry edges; state backends imply repository edges; secret mounts imply \textsf{authz} edges); \textsf{data} edges from backup catalogues and datastore topology. Crucially, harvesting produces \emph{candidates}: the classification $\gamma$ of each runtime edge and the hardness of each candidate recovery edge are human attestations by the owning team, because they encode counterfactual knowledge (``we can start degraded without recommendations'') that no observation of the healthy system contains. The division of labour is deliberate---machines propose, owners attest, and $\rdc$ measures how much of the proposal queue has been adjudicated.
+
+\paragraph{Evidence.} Every existing verification practice becomes a producer: scheduled restore tests emit BI/RR items; game days and failover exercises emit RR/FD \citep{krishnan2012weathering}; chaos experiments emit CE \citep{basiri2016chaos,litmuschaos}; CI checks over recovery assets emit CA; synthetic-transaction suites emit CT; secret and break-glass scanners emit CV. The integration is thin by design---a webhook per producer appending $(v, c, t, \tau_e, \mathit{verdict}, \mathit{prov})$---because the model asks producers only for what they already know. The append-only evidence ledger, with provenance, is what distinguishes the graph from a wiki: claims arrive with their substantiation attached, and expire without it.
+
+\paragraph{Lifecycle.} The graph participates in five moments: \emph{design time} (authoring and attestation, in version control, reviewed like code \citep{morris2020iac}); \emph{run time} (continuous consistency checks C1--C6 and drift detection); \emph{drill time} (plans are executed as exercises; outcomes append evidence and correct durations $d_v(\ell)$); \emph{incident time} (the planner emits the current recovery order and timeline; the console tracks $\sigma$ against it); and \emph{audit time} (metrics, evidence trails, and query results are exported). The dashed loop in Fig.~\ref{fig:architecture} is the point: a Recovery Graph is not a document that decays but a hypothesis under continuous test.
+
+\subsection{The Recovery Graph as a governance artifact}
+\label{sec:governance}
+
+Three governance properties distinguish $\GR$ from the infrastructure graphs it superficially resembles.
+
+\emph{Separation of claim and assessment.} Service owners attest structure ($\gamma$, edges, actions); a resilience function---not the owners being measured---sets policy: required evidence classes $\mathit{req}(v)$, validity horizons $\tau_e$, criticality weights, and target levels. This separation is what lets $\rri$/$\rec$/$\rcs$ function as controls rather than self-grades (Sec.~\ref{sec:metrics}).
+
+\emph{Auditability by construction.} Every number the suite produces decomposes into named nodes, attested edges, and provenance-linked evidence items; an auditor can descend from ``$\rri = 0.84$'' to the three unready nodes to the specific expired credential check behind one of them (Fig.~\ref{fig:query}). This addresses a concrete regulatory demand: the EU Digital Operational Resilience Act requires financial entities to maintain, test, and demonstrate ICT response and recovery capability \citep{eu2022dora}; ISO 22301 requires documented business-continuity procedures and evaluation of their effectiveness \citep{iso22301,iso22317}; NIST SP 800-34 requires contingency plans to be tested and maintained \citep{nist2010contingency}. We claim, precisely, that $\GR$ \emph{supports the production of evidence} for such obligations---machine-checkable inventories of recovery dependencies, freshness of testing, and coverage of assessment---and we do not claim that deploying it constitutes compliance with any instrument.
+
+\emph{Self-reference, closed.} The graph is itself a recovery dependency of the organisation: consulting the plan must not require the systems the plan recovers. Consistency rule C6 therefore applies to the graph platform itself---it must be a seed, with an out-of-band, periodically evidenced access path. The model closes over its own storage; the runbook-in-the-wiki pathology cannot re-enter through the front door.
+
+\subsection{Adoption path}
+Nothing above requires big-bang adoption. The minimal viable graph is tier-1 services plus the platform resources they touch---typically tens of nodes---with $\rdc$ measuring, from day one, how much of the runtime edge set has been adjudicated; the metrics are meaningful at any coverage because they are reported with coverage attached (Cor.~\ref{cor:optimism} and Sec.~\ref{sec:metrics}). Modelling effort at this granularity is an explicit measurement of RQ1 (Sec.~\ref{sec:eval}), not a promise; the worked example of Sec.~\ref{sec:feasibility}, 19 nodes and 57 edges for an 11-service system, indicates the order of magnitude involved.

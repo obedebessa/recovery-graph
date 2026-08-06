@@ -1,0 +1,13 @@
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+
+# LaTeX build products
+manuscript/*.aux
+manuscript/*.bbl
+manuscript/*.blg
+manuscript/*.log
+manuscript/*.out
+manuscript/*.synctex.gz
+manuscript/main.pdf

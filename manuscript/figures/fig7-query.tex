@@ -1,0 +1,36 @@
+% Figure 7: a governance query over the Recovery Graph and its result
+\begin{minipage}[t]{0.575\textwidth}
+\vspace{0pt}
+{\footnotesize\textbf{(a) query: expiring evidence on tier-1 recovery paths}}\par
+\begin{lstlisting}[language=Cypher]
+MATCH (s:Service {tier:1})
+      -[:REQUIRES*0..]->(x)
+      -[:EVIDENCED_BY]->(e:Evidence {verdict:'pass'})
+WHERE e.expiresAt < date() + duration('P30D')
+RETURN s.name  AS service,
+       x.name  AS atRisk,
+       e.class AS evidence,
+       e.expiresAt
+ORDER BY e.expiresAt
+\end{lstlisting}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.40\textwidth}
+\vspace{6pt}
+\centering
+{\footnotesize (b) result subgraph}\\[6pt]
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \node[svc] (fe) at (0,2.7) {frontend};
+  \node[svc] (co) at (0,1.8) {checkout};
+  \node[svc] (pm) at (0,0.9) {payment};
+  \node[res,seed] (ps) at (0,0) {pay-sandbox};
+  \node[diamond,draw=rgwarn!60!black,fill=rgwarn!25,inner sep=1.6pt,
+        font=\tiny,align=center] (ev) at (2.35,0)
+        {CV\\[-2pt]expires 2\,d};
+  \draw[verife] (fe) -- (co);
+  \draw[harde] (co) -- (pm);
+  \draw[verife] (pm) -- (ps);
+  \draw[-{Stealth[length=1.8mm]},rgwarn!60!black,semithick] (ps) -- (ev);
+  \node[font=\tiny,text=rgsec,align=left,anchor=west] at (1.1,1.8)
+    {\texttt{REQUIRES*} chain:\\ one near-expired\\ credential check puts\\ three tier-1 services\\ at risk};
+\end{tikzpicture}
+\end{minipage}

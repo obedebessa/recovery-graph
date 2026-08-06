@@ -1,0 +1,62 @@
+\section{Related work}
+\label{sec:related}
+
+Table~\ref{tab:positioning} positions the Recovery Graph against nine adjacent bodies of work along the capabilities the requirements of Sec.~\ref{sec:motivation} demand. The short version: each area contributes an ingredient---data protection, testing discipline, dependency structure, declarative reconstruction, governance obligation---and none represents operational recovery knowledge as a queryable, evidence-carrying artifact.
+
+\begin{table*}[t]
+\centering\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\begin{threeparttable}
+\caption{Positioning. \CIRCLE\ = central capability; \LEFTcircle\ = partial/implicit; \Circle\ = absent.}
+\label{tab:positioning}
+\begin{tabular}{@{}l c c c c c c@{}}
+\toprule
+ & \begin{tabular}{@{}c@{}}recovery-\\specific deps\end{tabular}
+ & \begin{tabular}{@{}c@{}}restore $\neq$\\recover\end{tabular}
+ & \begin{tabular}{@{}c@{}}expiring\\evidence\end{tabular}
+ & \begin{tabular}{@{}c@{}}computable\\plans, $\rto$\end{tabular}
+ & queryable
+ & \begin{tabular}{@{}c@{}}governance\\artifact\end{tabular} \\
+\midrule
+backup / DR tooling & \LEFTcircle & \Circle & \LEFTcircle & \Circle & \Circle & \Circle \\
+DR design automation \citep{keeton2004designing} & \LEFTcircle & \Circle & \Circle & \LEFTcircle & \Circle & \Circle \\
+BC standards \citep{iso22301,nist2010contingency,eu2022dora} & \LEFTcircle & \LEFTcircle & \LEFTcircle & \Circle & \Circle & \CIRCLE \\
+chaos engineering \citep{basiri2016chaos} & \Circle & \LEFTcircle & \LEFTcircle & \Circle & \Circle & \Circle \\
+SRE practice \citep{beyer2016sre,krishnan2012weathering} & \LEFTcircle & \LEFTcircle & \LEFTcircle & \Circle & \Circle & \LEFTcircle \\
+Kubernetes / GitOps \citep{burns2016borg,argocd} & \Circle & \Circle & \Circle & \LEFTcircle & \LEFTcircle & \Circle \\
+IaC resource graphs \citep{terraformgraph,morris2020iac} & \LEFTcircle & \Circle & \Circle & \LEFTcircle & \LEFTcircle & \Circle \\
+CMDB / ITIL, service catalogues \citep{itil2019,backstage} & \LEFTcircle & \Circle & \Circle & \Circle & \CIRCLE & \LEFTcircle \\
+runtime dependency graphs, RCA \citep{sigelman2010dapper,luo2021characterizing,wu2020microrca} & \Circle & \Circle & \Circle & \Circle & \CIRCLE & \Circle \\
+rollback-recovery protocols \citep{elnozahy2002rollback} & \LEFTcircle & \Circle & \Circle & \LEFTcircle & \Circle & \Circle \\
+ROC / self-healing \citep{patterson2002roc,kephart2003autonomic} & \Circle & \LEFTcircle & \Circle & \Circle & \Circle & \Circle \\
+fault trees / attack graphs \citep{vesely1981fault,sheyner2002attack} & \Circle & \Circle & \Circle & \LEFTcircle & \LEFTcircle & \LEFTcircle \\
+digital twins \citep{jones2020digitaltwin,tao2019digitaltwin} & \Circle & \Circle & \Circle & \LEFTcircle & \LEFTcircle & \Circle \\
+\textbf{Recovery Graph (this paper)} & \CIRCLE & \CIRCLE & \CIRCLE & \CIRCLE & \CIRCLE & \CIRCLE \\
+\bottomrule
+\end{tabular}
+\end{threeparttable}
+\end{table*}
+
+\paragraph{Backup, disaster recovery, and their automation.}
+Backup and DR tooling protects and re-instantiates \emph{data and infrastructure}; cloud-era work economised it \citep{wood2010dr} and Keeton et al.\ automated the \emph{design} of storage DR configurations against cost and objectives \citep{keeton2004designing}. This line optimises what we call the restore prefix, and its objective functions (RPO/RTO of systems) are inputs $\GR$ consumes as edge attributes and targets; none of it models cross-service operational recovery, order, or evidence. Kubernetes-native backup tools \citep{velero} inherit the same scope.
+
+\paragraph{Business continuity and digital-resilience governance.}
+ISO 22301 and the BIA guidance of ISO/TS 22317 mandate that organisations know their dependencies, priorities, and recovery procedures, and that these be exercised \citep{iso22301,iso22317}; NIST SP 800-34 does the same for federal systems \citep{nist2010contingency}; DORA turns testing and demonstrability into binding obligation for a large regulated sector \citep{eu2022dora}. These instruments define \emph{what must be known}; they are silent on \emph{representation}, and in practice are satisfied with documents. The Recovery Graph is best read as a mechanisation target for exactly this layer---Sec.~\ref{sec:governance} maps its artifacts onto the obligations---which is also why we call it a governance artifact rather than an infrastructure graph.
+
+\paragraph{Chaos engineering and resilience testing.}
+Chaos engineering builds confidence through experiments in production \citep{basiri2016chaos,rosenthal2020chaos}, and Google's DiRT institutionalised disaster testing \citep{krishnan2012weathering}. This community produces precisely the substantiation our evidence layer consumes, but leaves it unattached: an experiment's result lives in a report, not on the dependency whose recovery it substantiates, and decays without a clock. In our terms, chaos engineering is an evidence \emph{producer} (classes CE, RR, FD) for a store that has not existed. The relationship is symbiotic, not competitive.
+
+\paragraph{Site reliability engineering.}
+The SRE literature supplies the operational philosophy---error budgets, runbooks, postmortems, the calculus of dependency availability \citep{beyer2016sre,treynor2017calculus,adkins2020secure}---and empirical incident studies document both the cost of recovery and the decay of prose knowledge \citep{gunawi2016cloud,ghosh2022fight,chen2020incident,dang2019aiops}. We formalise the artifact this practice keeps informally; the runbook does not disappear but becomes the action documentation attached to nodes, with its executability and freshness now checkable (C3, C4).
+
+\paragraph{Kubernetes, GitOps, and infrastructure-as-code.}
+Reconciling controllers converge actual toward desired state \citep{burns2016borg,argocd}, and Terraform's resource graph orders resource creation and destruction \citep{terraformgraph,morris2020iac}---a true dependency DAG, but over \emph{infrastructure resources}, with no capability levels, no data/verify/capacity semantics, no evidence, and no notion that a running deployment might not be a recovered service. These systems are the reason restore is a solved problem, and their manifests are a harvesting source for $\GR$ (Sec.~\ref{sec:populating}); the Recovery Graph begins where their semantics end, at $\sigma \geq \lP$.
+
+\paragraph{Dependency graphs, configuration graphs, and CMDBs.}
+Trace-derived service graphs \citep{sigelman2010dapper,luo2021characterizing} and the RCA systems built on them \citep{wu2020microrca,gan2021sage} model the runtime relation $D$, which Prop.~\ref{prop:incomparable} separates from $\ER$; failure-propagation analysis runs along $D$, recovery along $\ER$, and conflating the two graphs is precisely the error the model is built to prevent. The CMDB is the closest ancestor in spirit---a queryable store of configuration items and relationships \citep{itil2019}, with service catalogues as its modern descendant \citep{backstage}---and its chronic failure mode is instructive: lacking executable semantics or expiring evidence, a CMDB drifts into a stale inventory nobody trusts. $\GR$ differs on exactly those two axes (guarded transition semantics; evidence with clocks) plus consistency checking against observed reality (C1--C2), which is what makes drift visible instead of terminal.
+
+\paragraph{Classical recovery, recovery-oriented computing, and self-healing.}
+Rollback-recovery and distributed snapshots give process-level state restoration its theory \citep{elnozahy2002rollback,chandy1985snapshots}; recovery-oriented computing argued for designing systems around fast repair \citep{patterson2002roc,candea2004microreboot,brown2003undo}; autonomic computing supplies the MAPE-K loop in which a knowledge component drives self-management \citep{kephart2003autonomic}. We are complementary to the first (their recovery is a mechanism a \textsf{data} edge may invoke; terminological collision noted---their ``recovery line'' is a consistent cut, not our recovery path), aligned with the second's philosophy at a different granularity, and, for the third, can be read as a concrete proposal for the long-underspecified K: the knowledge model an autonomic recovery manager would need.
+
+\paragraph{Fault trees, attack graphs, and digital twins.}
+Fault trees and attack graphs demonstrated decades ago that and/or dependency structure over undesired events supports both computation and audit \citep{vesely1981fault,sheyner2002attack}; we adapt that methodological stance to the \emph{return} of capability rather than its loss, with the conjunctive fragment formalised here and the and/or extension noted in Sec.~\ref{sec:blocking}. Digital twins maintain synchronised virtual replicas for simulation and prediction \citep{tao2019digitaltwin,jones2020digitaltwin}; a Recovery Graph is deliberately not a twin---it does not simulate behaviour, it represents commitments and their substantiation---but it could serve as the dependency skeleton a resilience-oriented twin animates. Resilience engineering's insistence that resilience is a capability exercised, not a property possessed \citep{hollnagel2006resilience,woods2015four}, is the intellectual frame the evidence layer operationalises.

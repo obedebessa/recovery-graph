@@ -1,0 +1,53 @@
+% Figure 8: reference architecture for populating and governing a Recovery Graph
+\begin{tikzpicture}[x=1cm,y=1cm,
+  src/.style={draw=rgaxis,thick,fill=rgink!3,rounded corners=2pt,minimum width=3.55cm,
+              minimum height=15pt,font=\footnotesize,align=center,text=rgink},
+  core/.style={draw=rgsvc,thick,fill=rgsvc!10,rounded corners=2pt,minimum width=4.35cm,
+              minimum height=15pt,font=\footnotesize,align=center,text=rgink},
+  con/.style={draw=rgevi!80!black,thick,fill=rgevi!10,rounded corners=2pt,minimum width=3.9cm,
+              minimum height=15pt,font=\footnotesize,align=center,text=rgink},
+  flow/.style={-{Stealth[length=2.2mm]},semithick,draw=rgsec!80}]
+
+  % ---- producers ----
+  \node[font=\footnotesize\bfseries,text=rgsec] at (0,4.35) {producers};
+  \node[src] (p1) at (0,3.6) {IaC \& GitOps repositories};
+  \node[src] (p2) at (0,2.9) {tracing \& topology discovery};
+  \node[src] (p3) at (0,2.2) {CMDB / service catalogue};
+  \node[src] (p4) at (0,1.5) {chaos \& DR-drill results};
+  \node[src] (p5) at (0,0.8) {backup catalogues, credential scanners};
+
+  % ---- core ----
+  \begin{scope}[on background layer]
+    \draw[rgsvc!60,thick,rounded corners=6pt,fill=rgsvc!4] (3.4,0.28) rectangle (8.5,4.6);
+  \end{scope}
+  \node[font=\footnotesize\bfseries,text=rgsvc!70!black] at (5.95,4.35) {Recovery Graph platform};
+  \node[core] (c1) at (5.95,3.75) {model store: nodes, edges, policies};
+  \node[core] (c2) at (5.95,3.05) {evidence ledger (append-only)};
+  \node[core] (c3) at (5.95,2.35) {consistency checker (C1--C6, drift)};
+  \node[core] (c4) at (5.95,1.65) {metrics \& scheduling engine};
+  \node[core] (c5) at (5.95,0.95) {query API (Cypher / GQL)};
+
+  % ---- consumers ----
+  \node[font=\footnotesize\bfseries,text=rgsec] at (11.6,4.35) {consumers};
+  \node[con] (q1) at (11.6,3.6) {recovery planner / incident console};
+  \node[con] (q2) at (11.6,2.75) {governance dashboards ($\rri$, $\rec$, $\rcs$)};
+  \node[con] (q3) at (11.6,1.9) {audit export (DORA, ISO 22301)};
+  \node[con] (q4) at (11.6,1.05) {CI/CD admission gate};
+
+  % ---- flows ----
+  \draw[flow] (p1.east) -- (3.35,3.6);
+  \draw[flow] (p2.east) -- (3.35,2.9);
+  \draw[flow] (p3.east) -- (3.35,2.2);
+  \draw[flow] (p4.east) -- node[elab,pos=0.5]{evidence} (3.35,1.5);
+  \draw[flow] (p5.east) -- (3.35,0.8);
+  \draw[flow] (8.55,3.6) -- (q1.west);
+  \draw[flow] (8.55,2.75) -- (q2.west);
+  \draw[flow] (8.55,1.9) -- (q3.west);
+  \draw[flow] (8.55,1.05) -- (q4.west);
+
+  % ---- feedback loop ----
+  \draw[flow,dashed,draw=rgevi!70!black] (q1.east) .. controls (14.2,3.6) and (14.4,-0.9) ..
+    (9.0,-0.75) .. controls (6.5,-0.7) and (5.95,-0.4) .. (5.95,0.24);
+  \node[font=\scriptsize,text=rgevi!50!black,anchor=north] at (8.6,-0.82)
+    {executed plans and drills append known-good evidence};
+\end{tikzpicture}

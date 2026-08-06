@@ -1,0 +1,55 @@
+% Figure 5: failure propagation vs recovery propagation over the same system
+\begin{tikzpicture}[x=1cm,y=1cm,
+  ord/.style={circle,draw=rgevi!80!black,fill=rgevi!15,font=\tiny\bfseries,
+              inner sep=1.6pt,text=rgink}]
+
+  % ============ panel (a): failure propagates along runtime edges ============
+  \begin{scope}
+    \node[font=\footnotesize\bfseries,text=rgsec] at (2.1,4.2) {(a) failure propagation (over $\GS$)};
+    \node[svc] (fe) at (2.1,3.4) {frontend};
+    \node[svc] (co) at (2.1,2.3) {checkout};
+    \node[svc] (ca) at (2.1,1.2) {cart};
+    \node[svc,draw=rgcrit,fill=rgcrit!18] (rd) at (2.1,0.1) {redis-cart $\times$};
+    \node[ghost] (bk) at (4.6,0.1) {backup};
+    \node[ghost] (rg) at (4.6,3.4) {registry};
+    \draw[harde] (fe) -- (co);
+    \draw[harde] (co) -- (ca);
+    \draw[harde] (ca) -- (rd);
+    % failure wave arrows (upward along reverse call direction)
+    \draw[-{Stealth[length=2mm]},rgcrit,thick] (2.95,0.32) to[out=70,in=-70] (2.95,1.0);
+    \draw[-{Stealth[length=2mm]},rgcrit,thick] (2.95,1.42) to[out=70,in=-70] (2.95,2.1);
+    \draw[-{Stealth[length=2mm]},rgcrit,thick] (2.95,2.52) to[out=70,in=-70] (2.95,3.2);
+    \node[font=\scriptsize,text=rgcrit,rotate=90] at (3.45,1.75) {errors cascade to callers};
+    \node[font=\scriptsize,text=rgsec,align=center] at (4.6,1.75)
+      {untouched\\ by failure};
+    \node[font=\scriptsize,text=rgsec,align=center] at (2.1,-0.85)
+      {blast radius $=$ reverse reachability\\ in the \emph{runtime} graph};
+  \end{scope}
+
+  % ============ panel (b): recovery propagates along recovery edges ==========
+  \begin{scope}[xshift=7.6cm]
+    \node[font=\footnotesize\bfseries,text=rgsec] at (2.1,4.2) {(b) recovery propagation (over $\GR$)};
+    \node[svc] (fe2) at (2.1,3.4) {frontend};
+    \node[svc] (co2) at (2.1,2.3) {checkout};
+    \node[svc] (ca2) at (2.1,1.2) {cart};
+    \node[svc] (rd2) at (2.1,0.1) {redis-cart};
+    \node[res,seed] (bk2) at (4.6,0.1) {backup};
+    \node[res,seed] (rg2) at (4.6,3.4) {registry};
+    \draw[verife] (fe2) -- (co2);
+    \draw[harde] (co2) -- (ca2);
+    \draw[harde] (ca2) -- (rd2);
+    \draw[harde] (rd2) -- (bk2);
+    \draw[harde] (ca2.east) to[out=15,in=-140] (rg2.south west);
+    % order badges
+    \node[ord] at (bk2.north west) {1};
+    \node[ord] at (rg2.north west) {1};
+    \node[ord] at (rd2.north west) {2};
+    \node[ord] at (ca2.north west) {3};
+    \node[ord] at (co2.north west) {4};
+    \node[ord] at (fe2.north west) {5};
+    \node[font=\scriptsize,text=rgevi!50!black,align=left,anchor=west] at (5.55,1.75)
+      {recovery reaches\\ nodes failure\\ never touched};
+    \node[font=\scriptsize,text=rgsec,align=center] at (2.1,-0.85)
+      {recovery order $=$ prerequisite-first\\ schedule over the \emph{recovery} graph};
+  \end{scope}
+\end{tikzpicture}

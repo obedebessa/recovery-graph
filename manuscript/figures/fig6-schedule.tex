@@ -1,0 +1,52 @@
+% Figure 6: computed earliest-completion recovery schedule (rgkit output)
+\begin{tikzpicture}[x=1cm,y=1cm]
+  \def\XS{0.082}
+  % segment: y, tstart, tend, fill
+  \def\seg#1#2#3#4{\fill[#4] ({#2*\XS},{#1-0.155}) rectangle ({#3*\XS},{#1+0.155});}
+  \def\wseg#1#2#3{\draw[pattern=north east lines,pattern color=rgaxis,draw=rggrid,thin]
+      ({#2*\XS},{#1-0.155}) rectangle ({#3*\XS},{#1+0.155});}
+  \def\cseg#1#2#3{\draw[rgcrit,line width=0.9pt] ({#2*\XS},{#1-0.155}) rectangle ({#3*\XS},{#1+0.155});}
+  \def\rlab#1#2{\node[anchor=east,font=\scriptsize,text=rgink] at (-0.15,#1) {#2};}
+
+  % ---- grid ----
+  \foreach \t in {0,15,30,45,60,75,90,105,120}{
+    \draw[rggrid,thin] ({\t*\XS},-0.35) -- ({\t*\XS},6.35);}
+  \foreach \t in {0,30,60,90,120}{
+    \node[font=\tiny,text=rgsec,anchor=north] at ({\t*\XS},-0.42) {\t};}
+  \node[font=\scriptsize,text=rgsec,anchor=north] at ({65*\XS},-0.78) {minutes since recovery start};
+
+  % ---- rows (top to bottom) ----
+  \rlab{6.0}{iac repo}       \seg{6.0}{0}{5}{rgres!18}\seg{6.0}{5}{10}{rgres!45}\seg{6.0}{10}{15}{rgres!75}
+                             \cseg{6.0}{0}{10}
+  \rlab{5.52}{registry}      \seg{5.52}{0}{5}{rgres!18}\seg{5.52}{5}{10}{rgres!45}\seg{5.52}{10}{15}{rgres!75}
+  \rlab{5.04}{secrets}       \seg{5.04}{0}{5}{rgres!18}\seg{5.04}{5}{10}{rgres!45}\seg{5.04}{10}{15}{rgres!75}
+  \rlab{4.56}{backup}        \seg{4.56}{0}{5}{rgres!18}\seg{4.56}{5}{15}{rgres!45}\seg{4.56}{15}{30}{rgres!75}
+  \rlab{4.08}{pay-sandbox}   \seg{4.08}{0}{5}{rgres!18}\seg{4.08}{5}{10}{rgres!45}\seg{4.08}{10}{30}{rgres!75}
+  \rlab{3.60}{k8s}           \seg{3.60}{10}{35}{rgres!18}\seg{3.60}{35}{50}{rgres!45}\seg{3.60}{50}{60}{rgres!75}
+                             \cseg{3.60}{10}{50}
+  \rlab{3.12}{obs}           \seg{3.12}{50}{60}{rgres!18}\seg{3.12}{60}{70}{rgres!45}\seg{3.12}{70}{80}{rgres!75}
+  \rlab{2.64}{productcatalog}\seg{2.64}{50}{55}{rgsvc!18}\seg{2.64}{55}{60}{rgsvc!45}\wseg{2.64}{60}{70}\seg{2.64}{70}{75}{rgsvc!75}
+  \rlab{2.16}{payment}       \seg{2.16}{50}{55}{rgsvc!18}\seg{2.16}{55}{65}{rgsvc!45}\wseg{2.16}{65}{70}\seg{2.16}{70}{85}{rgsvc!75}
+  \rlab{1.68}{redis-cart}    \seg{1.68}{50}{60}{rgsvc!18}\seg{1.68}{60}{80}{rgsvc!45}\seg{1.68}{80}{90}{rgsvc!75}
+                             \cseg{1.68}{50}{80}
+  \rlab{1.20}{cart}          \seg{1.20}{80}{85}{rgsvc!18}\seg{1.20}{85}{90}{rgsvc!45}\seg{1.20}{90}{100}{rgsvc!75}
+                             \cseg{1.20}{80}{90}
+  \rlab{0.72}{checkout}      \seg{0.72}{90}{95}{rgsvc!18}\seg{0.72}{95}{105}{rgsvc!45}\seg{0.72}{105}{115}{rgsvc!75}
+                             \cseg{0.72}{90}{115}
+  \rlab{0.24}{frontend}      \seg{0.24}{90}{95}{rgsvc!18}\seg{0.24}{95}{105}{rgsvc!45}\wseg{0.24}{105}{115}\seg{0.24}{115}{130}{rgsvc!75}
+                             \cseg{0.24}{115}{130}
+
+  % ---- RTO marker ----
+  \draw[rgcrit,densely dashed,thick] ({130*\XS},-0.35) -- ({130*\XS},6.35);
+  \node[font=\scriptsize,text=rgcrit,anchor=south,align=center] at ({130*\XS},6.4)
+    {$\rto(\textsf{frontend})$\\[-2pt]$=130$\,min};
+
+  % ---- legend ----
+  \node[font=\tiny,text=rgsec,anchor=west,align=left] at (0,-1.25)
+    {\tikz{\fill[rgsvc!18] (0,0) rectangle (0.32,0.18);}\,provision ($\lP$)\;\;
+     \tikz{\fill[rgsvc!45] (0,0) rectangle (0.32,0.18);}\,functionalise ($\lF$)\;\;
+     \tikz{\fill[rgsvc!75] (0,0) rectangle (0.32,0.18);}\,validate ($\lO$)\;\;
+     \tikz{\draw[pattern=north east lines,pattern color=rgaxis,draw=rggrid] (0,0) rectangle (0.32,0.18);}\,waiting on gate\;\;
+     \tikz{\draw[rgcrit,line width=0.9pt] (0,0) rectangle (0.32,0.18);}\,critical path\;\;
+     (orange rows: resources; blue rows: services; 6 non-critical rows omitted)};
+\end{tikzpicture}

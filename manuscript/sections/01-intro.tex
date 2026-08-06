@@ -1,0 +1,44 @@
+\section{Introduction}
+\label{sec:intro}
+
+Re-creating infrastructure has become a routine engineering activity. Declarative configuration, infrastructure-as-code, GitOps pipelines, and reconciling control planes such as Kubernetes allow an operator---or an automated controller---to rebuild clusters, redeploy workloads, and restore network and storage state from versioned descriptions with little manual effort \citep{burns2016borg,morris2020iac,argocd}. When a region is lost or a cluster is corrupted, the machinery that answers ``how do I get the infrastructure back?'' is mature, automated, and continuously exercised, because the same machinery performs every ordinary deployment.
+
+The machinery that answers ``how do I get the \emph{service} back?'' is none of these things. Public incident reports repeatedly describe organisations whose infrastructure was restored---or was restorable at any moment---while the operational capability it was supposed to carry remained unavailable for hours. During the July 2024 CrowdStrike-related outage, remediation of each Windows host was mechanically trivial, yet fleets stalled because BitLocker recovery keys were stored in systems that were themselves down, and because the manual procedure had never been exercised at fleet scale \citep{crowdstrike2024rca,microsoft2024kb}. In Meta's October 2021 outage, the tooling and access systems needed to execute recovery depended on the network that had failed, forcing physical access to data centres \citep{meta2021outage}. GitLab's 2017 database incident became a canonical example of unverified recovery assets: of five backup and replication mechanisms believed to be in place, none had produced a usable, tested restore path when it was needed \citep{gitlab2017postmortem}. And Amazon's Kinesis event of November 2020 showed that even when infrastructure is healthy again, services may be unable to return to operation except through a slow, carefully ordered, capacity-aware restart \citep{aws2020kinesis}---a phenomenon since generalised as metastable failure \citep{bronson2021metastable,huang2022metastable}. Systematic studies of cloud outages confirm that these are not isolated anecdotes: recovery, not detection, dominates outage duration, and recovery procedures are a recurring locus of failure \citep{gunawi2016cloud,ghosh2022fight,uptime2024outage}.
+
+Practitioners have long distinguished, informally, between bringing infrastructure back and bringing a service back; the distinction is implicit in ITIL's notion of service restoration \citep{itil2019}, in disaster-recovery practice around recovery time objectives \citep{nist2010contingency}, and in the site reliability engineering literature \citep{beyer2016sre}. What is missing is not the intuition but its formalisation: there exists, to our knowledge, no model in which the distinction is given precise semantics, no representation in which the knowledge required for operational recovery is stored as data rather than prose, and consequently no way to \emph{query}, \emph{measure}, or \emph{audit} an organisation's ability to recover before an incident forces the question. We name the two notions explicitly and use them throughout:
+
+\begin{quote}
+\textbf{Restore} means re-creating infrastructure: resources exist, configuration is applied, processes run.\\
+\textbf{Recover} means regaining operational capability: the service verifiably does its job again, with its data, credentials, dependencies, capacity, and validation criteria satisfied.
+\end{quote}
+
+\noindent Restoration is a prefix of recovery, not a synonym for it (Fig.~\ref{fig:gap}). The gap between the two is where modern incidents are lost, and it is precisely the part of the problem for which today's platforms hold no machine-readable knowledge.
+
+\begin{figure*}[t]
+  \centering
+  \input{figures/fig1-gap}
+  \caption{The restore--recover gap. Cloud-native tooling automates and measures the left interval; the right interval---where data restoration, credential re-establishment, dependency-ordered warm-up, capacity-gated ramp-up, and validation occur---is typically governed by prose runbooks and tacit knowledge. The formal capability levels $\lP$ (provisioned) and $\lO$ (operational) are defined in Sec.~\ref{sec:model}.}
+  \label{fig:gap}
+\end{figure*}
+
+This paper asks whether that knowledge can be made a first-class artifact. Our research question is:
+
+\begin{quote}
+\emph{Can operational recovery be represented as a graph whose structure enables measurable and queryable recovery planning?}
+\end{quote}
+
+\noindent As stated, the question is existential; to make it falsifiable we decompose it in Sec.~\ref{sec:eval} into four operational research questions concerning expressiveness (RQ1), divergence from runtime dependency structure (RQ2), predictive utility (RQ3), and queryability with governance value (RQ4).
+
+Our answer is the \emph{Recovery Graph}: a typed, attributed, evidence-carrying directed graph whose vertices are services and recovery resources, whose edges are \emph{recovery dependency edges}---a relation that, as we show, is neither a subset nor a superset of the runtime call graph---and whose vertex state tracks discrete capability levels separating \emph{restored} from \emph{recovered}. The graph carries \emph{known-good evidence}: timestamped, expiring records that a recovery action has been exercised successfully. From structure and evidence together we derive \emph{recovery readiness}, \emph{recovery confidence}, and computable \emph{recovery paths} with principled recovery-time estimates.
+
+\paragraph{Contributions.} This paper makes four contributions.
+\begin{enumerate}[label=\textbf{C\arabic*.},leftmargin=2.6em,itemsep=2pt]
+\item \textbf{A formal model} (Sec.~\ref{sec:model}) defining the service graph, the Recovery Graph, recovery dependency edges with a five-kind typology, capability levels and guarded recovery transitions, recovery evidence with freshness semantics, readiness, and confidence---together with well-formedness and consistency conditions and propositions characterising recoverability, schedule optimality, and the weakest-link behaviour of confidence.
+\item \textbf{Algorithms and queryability} (Sec.~\ref{sec:queries}): polynomial-time computation of recovery paths, earliest-completion schedules yielding $\rto$ estimates, blocking centrality, circular-bootstrap detection, and counterfactual removal; and a direct mapping of the model onto standard property-graph query languages \citep{francis2018cypher,iso2024gql}.
+\item \textbf{A metric suite} (Sec.~\ref{sec:metrics}): recovery path length, recovery confidence score, recovery readiness index, recovery evidence completeness, recovery graph density, and recovery dependency coverage, with their formal properties, interpretation guidance, and failure modes---turning recovery posture into a quantity that can be tracked and audited, a need made concrete by regulation such as the EU's Digital Operational Resilience Act \citep{eu2022dora}.
+\item \textbf{A reference architecture, governance framing, and evaluation design} (Secs.~\ref{sec:architecture}--\ref{sec:eval}): how the graph is populated from existing sources, kept consistent, and used as an auditable governance artifact; a registered-style experimental design with four research questions, baselines, and threats to validity; and an open reference implementation with a fully computed feasibility illustration on a model of a public microservice system.
+\end{enumerate}
+
+\paragraph{Scope.} The Recovery Graph is a knowledge and planning model, not a data-replication protocol, a consensus mechanism, or an automated remediation engine: it does not make recovery actions correct, it makes recovery knowledge explicit, checkable, and queryable. We deliberately do not claim that a graph, by itself, shortens outages; whether graph-derived plans and estimates match observed recovery behaviour is an empirical question that Sec.~\ref{sec:eval} is designed to answer.
+
+The remainder of the paper is organised as follows. Section~\ref{sec:motivation} derives requirements from recurring recovery pathologies. Sections~\ref{sec:model}--\ref{sec:metrics} present the model, algorithms, and metrics. Section~\ref{sec:architecture} presents the reference architecture and governance mapping. Section~\ref{sec:eval} presents the evaluation design and a computed feasibility illustration. Section~\ref{sec:related} positions the work; Sec.~\ref{sec:discussion} discusses limitations; Sec.~\ref{sec:conclusion} concludes.

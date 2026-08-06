@@ -1,0 +1,88 @@
+% Figure 3: Recovery Graph of the worked example (Online Boutique + platform)
+% Confidence values and critical path computed by rgkit (artifact).
+\begin{tikzpicture}[x=1cm,y=1cm,
+  n2/.style={align=center,inner sep=3pt},
+  cval/.style={font=\tiny,text=rgsec}]
+
+  % ---------- in-cluster bundle box (background) ----------
+  \begin{scope}[on background layer]
+    \draw[rggrid,fill=rgink!2,rounded corners=6pt,dashed,thick]
+      (5.05,-0.30) rectangle (15.05,7.35);
+  \end{scope}
+  \node[font=\scriptsize\itshape,text=rgsec,anchor=north west] at (5.2,7.3)
+    {in-cluster: every node $\rightarrow$ \textsf{k8s}, \textsf{registry} (order edges bundled)};
+
+  % ---------- seeds (left column) ----------
+  \node[res,seed,n2] (iac) at (0,5.6) {iac repo\\[-2pt]\tiny\color{rgsec}$C{=}.97$};
+  \node[res,seed,n2] (reg) at (0,4.4) {registry\\[-2pt]\tiny\color{rgsec}$C{=}.97$};
+  \node[res,seed,n2] (dns) at (0,3.2) {dns\\[-2pt]\tiny\color{rgsec}$C{=}.89$};
+  \node[res,seed,n2] (bak) at (0,2.0) {backup\\[-2pt]\tiny\color{rgsec}$C{=}.84$};
+  \node[res,seed,n2] (pay) at (0,0.8) {pay-sandbox\\[-2pt]\tiny\color{rgsec}$C{=}.03$};
+
+  % ---------- platform column ----------
+  \node[res,n2] (k8s) at (3.0,5.6) {k8s\\[-2pt]\tiny\color{rgsec}$C{=}.81$};
+  \node[res,seed,n2] (sec) at (3.0,3.2) {secrets\\[-2pt]\tiny\color{rgsec}$C{=}.61$};
+
+  % ---------- service column 1 ----------
+  \node[svc,n2] (pc) at (6.6,6.30) {productcatalog\\[-2pt]\tiny\color{rgsec}$C{=}.41$};
+  \node[svc,n2] (cu) at (6.6,5.45) {currency\\[-2pt]\tiny\color{rgsec}$C{=}.41$};
+  \node[svc,n2] (sh) at (6.6,4.60) {shipping\\[-2pt]\tiny\color{rgsec}$C{=}.41$};
+  \node[svc,n2] (em) at (6.6,3.75) {email\\[-2pt]\tiny\color{rgsec}$C{=}.25$};
+  \node[svc,n2] (ad) at (6.6,2.90) {ad\\[-2pt]\tiny\color{rgsec}$C{=}.29$};
+  \node[svc,n2] (pm) at (6.6,2.05) {payment\\[-2pt]\tiny\color{rgsec}$C{=}.02$};
+  \node[svc,n2] (rc) at (6.6,1.15) {redis-cart\\[-2pt]\tiny\color{rgsec}$C{=}.44$};
+  \node[res,n2] (obs) at (6.6,0.25) {obs\\[-2pt]\tiny\color{rgsec}$C{=}.55$};
+
+  % ---------- service column 2 ----------
+  \node[svc,n2] (rec) at (9.6,6.30) {recommendation\\[-2pt]\tiny\color{rgsec}$C{=}.21$};
+  \node[svc,n2] (ca)  at (9.6,1.15) {cart\\[-2pt]\tiny\color{rgsec}$C{=}.35$};
+
+  % ---------- checkout / frontend ----------
+  \node[svc,n2] (co) at (11.9,3.4) {checkout\\[-2pt]\tiny\color{rgsec}$C{=}.01$};
+  \node[svc,n2] (fe) at (14.15,3.4) {frontend\\[-2pt]\tiny\color{rgsec}$C{\approx}0$};
+
+  % ---------- readiness dots ----------
+  \foreach \n in {iac,reg,dns,bak,k8s,sec,pc,cu,sh,ad,rc,obs,rec,ca,co,fe}
+    {\fill[rggood] (\n.north east) circle (1.5pt);}
+  \foreach \n in {pay,em,pm}
+    {\fill[rgcrit] (\n.north east) circle (1.5pt);}
+
+  % ---------- bundled platform arrows ----------
+  \draw[-{Stealth[length=2.2mm]},line width=1.1pt,rgink!35] (5.05,5.6) -- (k8s.east);
+  \draw[-{Stealth[length=2.2mm]},line width=1.1pt,rgink!35] (5.05,4.75) to[out=180,in=15] (reg.east);
+
+  % ---------- explicit edges (dependent -> prerequisite) ----------
+  \draw[crite] (k8s) -- (iac);
+  \draw[crite] (rc.west) to[out=195,in=-60] (k8s.south);
+  \draw[harde] (rc.west) to[out=178,in=5] (bak.east);
+  \draw[harde] (pm.west) to[out=190,in=8] (pay.east);
+  \draw[harde] (pm.west) to[out=160,in=-15] (sec.east);
+  \draw[crite] (ca) -- (rc);
+  \draw[harde] (ca.west) to[out=140,in=-28] (sec.east);
+  \draw[harde] (rec) -- (pc);
+  \draw[crite] (co.west) to[out=225,in=25] (ca.north east);
+  \draw[harde] (co.west) to[out=185,in=-12] (pm.east);
+  \draw[harde] (co.north west) to[out=150,in=-8] (cu.east);
+  \draw[harde] (co.north west) to[out=125,in=-5] (pc.east);
+  \draw[harde] (co.west) to[out=168,in=-10] (sh.east);
+  \draw[softe] (co.west) to[out=178,in=-12] (em.east);
+  \draw[harde] (fe.north) to[out=115,in=15] (pc.north east);
+  \draw[harde] (fe.south) to[out=245,in=12] (ca.east);
+  \draw[softe] (fe.north) to[out=100,in=8] (rec.east);
+  \draw[softe] (fe.south west) to[out=210,in=-3] (ad.east);
+  \draw[harde] (fe.south) to[out=280,in=-40,looseness=1.4]
+     node[elab,pos=0.35]{c} (ca.south east);
+  \draw[crite,densely dotted] (fe) -- node[elab,pos=0.5]{v\,:\,$\lO$} (co);
+
+  % ---------- legend ----------
+  \node[font=\scriptsize,text=rgsec,anchor=west,align=left] at (-0.75,-1.15)
+    {\tikz{\node[svc,scale=0.7]{svc};}\ service \quad
+     \tikz{\node[res,scale=0.7]{res};}\ resource \quad
+     \tikz{\node[res,seed,scale=0.7]{s};}\ seed \quad
+     \tikz{\draw[harde](0,0)--(0.5,0);}\ hard \quad
+     \tikz{\draw[softe](0,0)--(0.5,0);}\ soft \quad
+     \tikz{\draw[verife](0,0)--(0.5,0);}\ verify \quad
+     \tikz{\draw[crite](0,0)--(0.5,0);}\ critical path \quad
+     \tikz{\fill[rggood] (0,0) circle (1.5pt);}\ ready \quad
+     \tikz{\fill[rgcrit] (0,0) circle (1.5pt);}\ not ready};
+\end{tikzpicture}

@@ -1,0 +1,28 @@
+\section{Metrics for recovery posture}
+\label{sec:metrics}
+
+Requirements R5--R6 ask for quantities that can be tracked over time, compared across services, and defended in an audit. We define six, chosen so that each is computable in polynomial time from $(\GR, \mathit{Ev}, D)$, has explicit bounds and monotonicity behaviour, and---critically---has a documented failure mode. Table~\ref{tab:metrics} summarises; all six are implemented in the reference implementation and instantiated on the worked example in Table~\ref{tab:examplemetrics}.
+
+\begin{table*}[t]
+\centering\small
+\caption{The metric suite. $w_v$ are criticality weights; $W = \sum_v w_v$.}
+\label{tab:metrics}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Metric} & \textbf{Definition} & \textbf{Reading} \\
+\midrule
+$\rpl(v)$ & $\bigl(\rpl_{\mathrm{hop}}(v),\; \rto(v)\bigr)$ (Def.~\ref{def:path}) & structural and temporal depth of $v$'s recovery \\
+$\rcs$ & per-node $C(v)$ (Def.~\ref{def:confidence}); system: distribution, $\tfrac{1}{W}\!\sum_v w_v C(v)$, and $\min_{\text{tier-1}} C$ & how substantiated recovery claims are \\
+$\rri$ & $\tfrac{1}{W} \sum_{v} w_v \,[\mathit{ready}(v)]$ & fraction of criticality currently evidence-ready \\
+$\rec$ & $\tfrac{1}{W} \sum_{v} w_v \frac{|\{c \in \mathit{req}(v) : \text{known-good}\}|}{|\mathit{req}(v)|}$ & fineness: how much of the required evidence exists \\
+$\delta,\ \rho$ & $\delta = \frac{|\ER|}{|V|(|V|-1)}$;\; $\rho = \frac{|\{e \in \ER : e^\flat \notin D \cup D^{-1}\}|}{|\ER|}$ & descriptive: modelling density; share of recovery knowledge invisible to tracing \\
+$\rdc$ & $\frac{|\{d \in D : \gamma(d) \text{ defined}\}|}{|D|}$ & assessment coverage: the trust qualifier for every path/$\rto$ result \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\paragraph{Properties.} All ratio metrics lie in $[0,1]$. By Prop.~\ref{prop:weakestlink}, $\rcs$, $\rri$, and $\rec$ are monotone non-decreasing under addition of passing evidence and non-increasing under pure passage of time; by Cor.~\ref{cor:optimism}, $\rpl$ and $\rto$ are monotone non-decreasing under edge addition. This pair of monotonicities yields the suite's central discipline: \emph{structure metrics can only worsen as modelling improves, while evidence metrics can only improve as practice improves}. An organisation that starts modelling honestly should expect $\rto$ estimates to grow and $\rdc$ to grow with them---the estimates were always that large; they were merely unknown---and should distrust any dashboard on which $\rto$ shrinks while $\rdc$ is flat.
+
+\paragraph{Interpretation and aggregation guidance.} Weighted means mask exactly the failures that matter, so $\rri$, $\rec$, and $\rcs$ are specified to be reported \emph{with} their tier-1 minima and distributions, never as a single scalar; the worked example illustrates why---its weighted $\rcs$ is $0.35$ while its tier-1 minimum is $\approx 0$, and the second number is the finding. Density $\delta$ and the recovery-only ratio $\rho$ are \emph{descriptive} statistics of the model, not health scores: their role is anomaly detection (a tier-1 service whose $\delta$-neighbourhood is far sparser than its peers' is more plausibly under-modelled than simple) and quantifying Prop.~\ref{prop:incomparable} in the field (RQ2). They must not appear as optimisation targets.
+
+\paragraph{Failure modes and gaming.} Because $\rcs$/$\rec$/$\rri$ are monotone in evidence, the rational way to game them is to manufacture hollow evidence---drills that exercise nothing, attestations rubber-stamped. Three mitigations are part of the model rather than afterthoughts: evidence carries provenance linking to raw records (Def.~\ref{def:evidence}), class requirements are per-node policy set by a governance function rather than by the service owner being measured (Sec.~\ref{sec:governance}), and audit sampling re-executes a random subset of evidence-producing procedures. $\rdc$ is gameable by classifying every runtime edge \emph{irrelevant}; the countermeasure is that \emph{irrelevant} is itself an attested claim (it asserts the service starts and validates without the dependency), spot-checkable by chaos experiment---which turns the gaming attempt into a testable statement, arguably the best outcome available. We regard the explicitness of these failure modes as a feature of the suite: each metric's blind spot is named, and paired with the mechanism that watches it.

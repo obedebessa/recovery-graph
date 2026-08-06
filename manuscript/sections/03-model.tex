@@ -1,0 +1,218 @@
+\section{The Recovery Graph model}
+\label{sec:model}
+
+This section formalises the model against requirements R1--R6 (Table~\ref{tab:reqs}). Throughout, fix a system under management comprising a finite set of \emph{services} $S$ (independently deployable units of capability) and a finite set of \emph{recovery resources} $R$ (entities required to execute or validate recovery but not themselves part of the served workload: registries, code and configuration repositories, secret stores, backup stores, DNS and identity control planes, observability stacks, external sandboxes). We write $V = S \cup R$.
+
+\subsection{Preliminaries: the service graph}
+
+\begin{definition}[Service graph]
+\label{def:servicegraph}
+The \emph{service graph} is a directed graph $\GS = (S, D)$ with $D \subseteq S \times S$, where $(u,v) \in D$ iff $u$ invokes or consumes $v$ during normal operation. $\GS$ is the object produced by distributed tracing and topology discovery \citep{sigelman2010dapper,luo2021characterizing}.
+\end{definition}
+
+$\GS$ describes how work flows when the system is healthy. Nothing in $\GS$ describes how capability returns when it is not; establishing the relationship between the two graphs precisely is the task of Sec.~\ref{sec:redges}.
+
+\subsection{Capability levels: restore vs.\ recover, formally}
+\label{sec:levels}
+
+\begin{definition}[Capability levels]
+\label{def:levels}
+Let $\Lev = \{\lD, \lP, \lF, \lO\}$ be totally ordered by $\lD < \lP < \lF < \lO$, with the reading: $\lD$ (\emph{down}) --- the node is unavailable; $\lP$ (\emph{provisioned}) --- the node's infrastructure exists and its processes run; $\lF$ (\emph{functional}) --- the node passes its own health and self-checks and can serve, possibly in degraded mode; $\lO$ (\emph{operational}) --- the node satisfies its declared validation predicate $\mathit{val}_v$ (synthetic end-to-end transactions, SLO-conformant probes, data-consistency checks). A \emph{recovery state} is a map $\sigma : V \to \Lev$.
+\end{definition}
+
+\begin{definition}[Restore, recover]
+\label{def:restorerecover}
+A node $v$ is \emph{restored} in state $\sigma$ iff $\sigma(v) \geq \lP$, and \emph{recovered} iff $\sigma(v) = \lO$. A target set $T \subseteq S$ is recovered iff all its members are.
+\end{definition}
+
+Two design choices deserve defence. First, $\lO$ is defined relative to a \emph{declared} validation predicate, not to an absolute notion of correctness: this is what makes ``recovered'' auditable---an organisation states in advance what evidence of operation it will accept, and the model checks that statement, a discipline analogous to declaring SLOs \citep{beyer2016sre}. Second, $\Lev$ is deliberately a small total order. Real systems admit richer partial orders of degraded operation; we discuss the extension in Sec.~\ref{sec:discussion} and note here only that every mechanism below is parametric in $\Lev$ and requires only that it be a finite lattice. Figure~\ref{fig:lts} shows the levels and the guarded transitions between them defined in Sec.~\ref{sec:transitions}: \emph{restore} is the prefix $\lD \to \lP$; \emph{recover} is the whole word $\lD \to \lO$.
+
+\begin{figure*}[t]
+  \centering
+  \input{figures/fig4-lts}
+  \caption{Capability levels and guarded recovery transitions (Defs.~\ref{def:levels}, \ref{def:actions}). Each transition is an action whose guards refer to the levels of other nodes via recovery dependency edges; completing a transition may emit evidence (Def.~\ref{def:evidence}). Dashed edges are failure/degradation events, which are outside the planned-recovery semantics (Assumption A1).}
+  \label{fig:lts}
+\end{figure*}
+
+\subsection{Recovery dependency edges}
+\label{sec:redges}
+
+\begin{definition}[Recovery dependency edge]
+\label{def:redge}
+A \emph{recovery dependency edge} is a tuple $e = (u, v, \kappa, h, \theta, \pi)$ with $u, v \in V$, kind $\kappa \in K = \{\textsf{order}, \textsf{data}, \textsf{verify}, \textsf{capacity}, \textsf{authz}\}$, hardness $h \in \{\text{hard}, \text{soft}\}$, stage $\theta \in \{\text{start}, \text{complete}\}$, and threshold $\pi \in \Lev$. We read $e$ as ``$u$ \emph{requires} $v$'': if $h = \text{hard}$ and $\theta = \text{start}$, no recovery action of $u$ may begin until $\sigma(v) \geq \pi$; if $h = \text{hard}$ and $\theta = \text{complete}$, $u$ may progress through intermediate levels but cannot be certified $\lO$ until $\sigma(v) \geq \pi$. Soft edges never block; they record dependencies under which $u$ can proceed in degraded form (\emph{degraded-start}), and they discount confidence (Def.~\ref{def:confidence}).
+\end{definition}
+
+\begin{table*}[t]
+\centering\small
+\caption{Edge-kind typology with recovery semantics and requirement coverage.}
+\label{tab:kinds}
+\begin{tabularx}{\textwidth}{@{}l X l@{}}
+\toprule
+\textbf{Kind} & \textbf{Semantics and typical instance} & \textbf{Req.} \\
+\midrule
+\textsf{order} & $v$ must be sufficiently capable for $u$'s recovery \emph{actions} to execute: image pulls need the registry, cluster rebuild needs the IaC repository & R1, R2 \\
+\textsf{data} & $u$'s state derives from $v$: restore-before-serve, replica rebuild, log replay; may carry a staleness bound (the edge-level analogue of RPO) & R1 \\
+\textsf{verify} & $u$'s validation ($\lO$) requires $v$: synthetic checkout needs the payment sandbox; every probe needs the observability stack & R4 \\
+\textsf{capacity} & $v$ must have headroom before $u$ ramps traffic: the anti-metastability gate \citep{bronson2021metastable} & R4 \\
+\textsf{authz} & credentials or approvals for $u$'s recovery are obtained from $v$: key management, identity provider, change approval & R1 \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+The central structural claim of the paper is that this relation is genuinely different from the runtime relation:
+
+\begin{proposition}[Incomparability]
+\label{prop:incomparable}
+There exist systems for which, writing
+\[
+\begin{aligned}
+\ER^{\flat}=\{(u,v) : {} & (u,v,\ldots) \\
+                          & \in \ER\},
+\end{aligned}
+\]
+for the underlying edge pairs, neither $\ER^{\flat} \subseteq D$ nor $D \subseteq \ER^{\flat}$ holds.
+\end{proposition}
+
+\begin{proof}[(by construction)]
+(i) $\ER^{\flat} \not\subseteq D$: any service pulled from a container registry has a hard \textsf{order} recovery dependency on the registry, yet no runtime call ever reaches the registry, so the pair is absent from $D$; backup stores, IaC repositories, and key escrow (Sec.~\ref{sec:pathologies}, P1) are analogous. (ii) $D \not\subseteq \ER^{\flat}$: a service that calls an advertising sidecar at runtime but starts and validates without it yields $(u,\textit{ad}) \in D$ classified \emph{irrelevant} or \emph{soft}, hence absent from the hard recovery relation. \qedhere
+\end{proof}
+
+The proposition is deliberately modest---an existence claim, provable by exhibition. The empirically interesting quantity is the \emph{magnitude} of the divergence in real systems, which we operationalise as the recovery-only ratio $\rho$ and study under RQ2 (Sec.~\ref{sec:eval}); in the worked example of Sec.~\ref{sec:feasibility}, three quarters of recovery dependencies have no runtime counterpart. Figure~\ref{fig:runtimevsrecovery} contrasts the two graphs on a slice of that example.
+
+\begin{figure*}[t]
+  \centering
+  \input{figures/fig2-runtime-vs-recovery}
+  \caption{The same subsystem seen by tracing (a) and by the Recovery Graph (b). Recovery adds nodes invisible at runtime (registry, backup, secrets, payment sandbox), types and gates the edges, and demotes runtime edges that are not recovery-relevant. Neither graph is derivable from the other (Prop.~\ref{prop:incomparable}).}
+  \label{fig:runtimevsrecovery}
+\end{figure*}
+
+\subsection{The Recovery Graph}
+
+\begin{definition}[Recovery Graph]
+\label{def:rg}
+A \emph{Recovery Graph} is a structure
+$\GR = (V,\, \ER,\, \tau,\, B,\, \mathit{req},\, \mathit{Ev},\, \mu)$
+where $V = S \cup R$; $\ER$ is a finite set of recovery dependency edges over $V$ (Def.~\ref{def:redge}); $\tau : V \to \{\textsf{svc}, \textsf{res}\}$ types the vertices; $B \subseteq V$ is the \emph{seed set}---nodes recoverable by means external to the modelled system (managed services, out-of-band procedures); $\mathit{req} : V \to 2^{\mathcal{C}}$ assigns required evidence classes (Sec.~\ref{sec:evidence}); $\mathit{Ev}$ is the evidence store; and $\mu$ carries metadata: criticality weights $w_v > 0$, recovery targets, per-level action durations $d_v(\ell)$, and the \emph{classification} $\gamma : D \to \{\text{hard}, \text{soft}, \text{irrelevant}\}$ recording, for each runtime edge, its assessed recovery relevance.
+\end{definition}
+
+The classification $\gamma$ makes the relationship between $\GS$ and $\GR$ an explicit, auditable artifact rather than an implicit judgment: a runtime edge may induce a hard recovery edge, a soft one, or none, but under consistency rule C2 (Sec.~\ref{sec:consistency}) it may not be silently ignored. This is the basis of the coverage metric $\rdc$ (Sec.~\ref{sec:metrics}).
+
+\paragraph{Well-formedness.} $\GR$ is \emph{well-formed} iff: (\textbf{W1}) every non-seed node has a defined action for each level transition (executability); (\textbf{W2}) all edges reference nodes of $V$ and all thresholds satisfy $\pi \geq \lP$; (\textbf{W3}) the hard core is acyclic at action granularity (Def.~\ref{def:actiongraph}); (\textbf{W4}) every $\preceq$-minimal node of the hard enablement order is a seed. W3 and W4 are exactly the absence of pathology P2: a violation is a circular bootstrap or an unseeded origin, detected before an incident rather than during one.
+
+\subsection{Actions, transitions, and recovery plans}
+\label{sec:transitions}
+
+\begin{definition}[Recovery action]
+\label{def:actions}
+For each $v \in V$ and level $\ell \in \{\lP, \lF, \lO\}$, the \emph{recovery action} $a_v^{\ell}$ advances $v$ from the predecessor level of $\ell$ to $\ell$. It has duration $d_v(\ell) \geq 0$ and may emit evidence $\mathit{ev}(a_v^{\ell}) \subseteq \mathcal{C}$. Its guard is the conjunction of (i) $v$ occupying the predecessor level, (ii) for every hard start-edge $(v, x, \kappa, \text{hard}, \text{start}, \pi)$: $\sigma(x) \geq \pi$ when $\ell = \lP$, and (iii) for every hard complete-edge $(v, x, \kappa, \text{hard}, \text{complete}, \pi)$: $\sigma(x) \geq \pi$ when $\ell = \lO$.
+\end{definition}
+
+\begin{definition}[Action graph]
+\label{def:actiongraph}
+The \emph{action graph} $\mathcal{A}(\GR)$ has one task node $(v,\ell)$ per action, weighted $d_v(\ell)$; intra-node edges $(v,\lP) \to (v,\lF) \to (v,\lO)$; and, for each hard edge of $\ER$, a cross edge $(x,\pi) \to (v,\lP)$ if $\theta = \text{start}$ and $(x,\pi) \to (v,\lO)$ if $\theta = \text{complete}$.
+\end{definition}
+
+Working at action granularity matters: a pair of nodes may depend on each other at \emph{different levels} without deadlock (the observability stack needs the cluster at $\lF$; the cluster's $\lO$-validation needs observability), and $\mathcal{A}(\GR)$ distinguishes such benign mutual references from true cycles. This resolves an apparent paradox in several public incidents: what looks like a circular dependency is sometimes recoverable through interleaving at intermediate levels, and the model decides which case one is in.
+
+\begin{definition}[Run, plan, schedule]
+\label{def:plan}
+Under \emph{Assumption A1} (monotone runs: during planned recovery no node regresses in level; a regression event ends the run and re-plans), a \emph{recovery run} from initial state $\sigma_0$ is a sequence of action firings each enabled by its guard. A \emph{recovery plan} for target $T \subseteq S$ is a run after which $\sigma(v) = \lO$ for all $v \in T$. A \emph{schedule} assigns start times respecting guards and durations; its \emph{makespan} for $v$ is the completion time of $(v,\lO)$, and $\rto(v)$ denotes the minimum such makespan over schedules with unbounded parallelism.
+\end{definition}
+
+\begin{theorem}[Modelled recoverability]
+\label{thm:recoverability}
+Let $\GR$ satisfy W1--W2, and let $\sigma_0 \equiv \lD$ (total loss). Every $v \in V$ is recoverable---some plan brings it to $\lO$---iff (i) $\mathcal{A}(\GR)$ is acyclic and (ii) every source task of $\mathcal{A}(\GR)$ belongs to a seed (W3--W4).
+\end{theorem}
+
+\begin{proof}[sketch]
+($\Leftarrow$) Fire actions in any topological order of $\mathcal{A}(\GR)$; guards hold inductively because all guard atoms are level lower-bounds established by earlier tasks and never invalidated under A1; seeds discharge base cases. ($\Rightarrow$) A cycle in $\mathcal{A}(\GR)$ yields a set of tasks none of which can fire first (circular waiting); a non-seed source has a guard no run can establish. Full proof in \ref{app:proofs}. \qedhere
+\end{proof}
+
+We stress the qualifier \emph{modelled}: the theorem certifies the declared knowledge, not the world; an unmodelled dependency can defeat a certified plan. This is not a weakness peculiar to the model---it is the condition of every plan---but the model makes the exposure measurable (via $\rdc$ and drift, Secs.~\ref{sec:metrics}, \ref{sec:consistency}) instead of tacit.
+
+\begin{proposition}[Schedules and $\rto$]
+\label{prop:schedule}
+For well-formed $\GR$ with deterministic durations and unbounded executors, the earliest-completion schedule and $\rto(v)$ for all $v$ are computable in $O(|V_{\mathcal{A}}| + |E_{\mathcal{A}}|)$ time by longest-path propagation over $\mathcal{A}(\GR)$ in topological order---the classic critical-path computation \citep{kelley1959critical}. With a bound $k$ on concurrent actions, minimising makespan is NP-hard (it contains $P\,|\,\mathit{prec}\,|\,C_{\max}$ \citep{ullman1975np}), and the unbounded value remains a valid lower bound.
+\end{proposition}
+
+\begin{corollary}[Optimism of omission]
+\label{cor:optimism}
+$\rto$ is monotone non-decreasing under addition of hard edges and non-negative durations. Hence an \emph{under-modelled} graph can only make $\rto$ optimistic, never pessimistic.
+\end{corollary}
+
+Corollary~\ref{cor:optimism} has a governance consequence we exploit in Sec.~\ref{sec:metrics}: a recovery-time estimate is only as trustworthy as the completeness of the graph behind it, so the estimate must always be reported together with the coverage metric $\rdc$; the two are designed as a pair.
+
+\subsection{Recovery evidence and known-good evidence}
+\label{sec:evidence}
+
+Requirement R3 demands that the \emph{claims} embodied in the graph---this backup restores, this runbook works, this failover engages---be substantiated and that the substantiation expire. Let $\mathcal{C}$ be a finite set of \emph{evidence classes}; Table~\ref{tab:evidence} lists the taxonomy used in this paper (organisations may refine it).
+
+\begin{table*}[t]
+\centering\small
+\caption{Evidence classes $\mathcal{C}$ with typical producers.}
+\label{tab:evidence}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Class} & \textbf{Substantiates} & \textbf{Typical producer} \\
+\midrule
+BI\ backup integrity & data edges: the artifact restores bit-correctly & scheduled restore-and-checksum jobs \\
+RR\ restore rehearsal & order edges and actions: the node can actually be rebuilt & DR drills, game days \citep{krishnan2012weathering} \\
+FD\ failover drill & alternative-route actions engage under load & regional failover exercises \\
+CE\ chaos experiment & behaviour under injected dependency failure & chaos tooling \citep{basiri2016chaos,litmuschaos} \\
+CA\ configuration attestation & referenced recovery assets exist, are pinned and resolvable & CI checks over IaC and runbooks \\
+CT\ contract/validation test & the $\lO$ validation predicate itself executes and passes & synthetic transaction suites \\
+CV\ credential validity & authz edges: recovery credentials work and are reachable out-of-band & secret scanners, break-glass tests \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\begin{definition}[Recovery evidence; known-good]
+\label{def:evidence}
+An \emph{evidence item} is a tuple $e = (v, c, t, \tau_e, \mathit{verdict}, \mathit{prov})$: subject $v \in V$, class $c \in \mathcal{C}$, production time $t$, validity horizon $\tau_e > 0$, $\mathit{verdict} \in \{\text{pass}, \text{fail}\}$, and provenance $\mathit{prov}$ (who or what produced it, linking to raw records). At time $t_{\mathrm{now}}$, $e$ is \emph{known-good} iff $\mathit{verdict} = \text{pass}$ and $t_{\mathrm{now}} - t \leq \tau_e$. Its \emph{freshness} is $\varphi(e) = \max\!\bigl(0,\, 1 - (t_{\mathrm{now}} - t)/\tau_e\bigr)$.
+\end{definition}
+
+The linear decay is a default, not a dogma: any non-increasing $\varphi$ with $\varphi = 1$ at production and $\varphi = 0$ at expiry is admissible, and the metric definitions below are parametric in it; the evaluation design includes a sensitivity analysis over decay shapes (Sec.~\ref{sec:rq3}). What is \emph{not} negotiable is expiry itself: Definition~\ref{def:evidence} is the formal rendering of the observation in Sec.~\ref{sec:pathologies} that the ability to recover is a claim that expires. A backup integrity check from last week supports a claim; one from last year supports an assumption.
+
+\subsection{Readiness and confidence}
+\label{sec:confidence}
+
+\begin{definition}[Recovery readiness]
+\label{def:readiness}
+Node $v$ is \emph{ready}, written $\mathit{ready}(v)$, iff for every required class $c \in \mathit{req}(v)$ there exists a known-good evidence item for $(v, c)$. Readiness is local and binary by design---it is the auditable atom. \emph{Transitive readiness} $\mathit{ready}^{*}(v)$ additionally requires $\mathit{ready}(x)$ for every $x$ in the hard closure $\closure(v)$ (Def.~\ref{def:path}).
+\end{definition}
+
+\begin{definition}[Recovery confidence]
+\label{def:confidence}
+Let $\hardpre(v)$ and $\softpre(v)$ be $v$'s hard and soft prerequisites. The \emph{local evidence score} is
+\[
+\begin{aligned}
+\Eloc(v) &= \frac{1}{|\mathit{req}(v)|}
+  \sum_{c \,\in\, \mathit{req}(v)} \\
+&\quad \max_{\substack{e \in \mathit{Ev}(v,c) \\ \mathit{verdict}(e)=\text{pass}}}
+  \varphi(e),
+\end{aligned}
+\]
+with $\Eloc(v) = 1$ if $\mathit{req}(v) = \emptyset$,
+and \emph{recovery confidence} is defined, on graphs whose hard core is acyclic, by the recursion (evaluated in topological order)
+\[
+C(v) \;=\; \Eloc(v)\;\cdot \min_{x \,\in\, \hardpre(v)} C(x) \;\cdot \prod_{x \,\in\, \softpre(v)} \bigl(1 - \omega_s\,(1 - C(x))\bigr),
+\]
+with $\min \emptyset = 1$, $\prod \emptyset = 1$, and soft-discount parameter $\omega_s \in [0,1]$ (default $\tfrac12$).
+\end{definition}
+
+\begin{proposition}[Weakest link]
+\label{prop:weakestlink}
+For well-formed $\GR$: $0 \leq C(v) \leq 1$; $C(v) \leq C(x)$ for every hard prerequisite $x$ of $v$, hence $C(v) \leq \min_{x \in \closure(v)} C(x)$; and $C$ is monotone non-decreasing in the addition of passing evidence and non-increasing in the passage of time. (Proof in \ref{app:proofs}.)
+\end{proposition}
+
+The $\min$ over hard prerequisites is a modelling commitment, not an estimate: hard recovery is conjunctive, and a chain is as credible as its least-substantiated link. The multiplicative local factor further penalises nodes that are themselves poorly evidenced. Two consequences are intended. First, confidence localises: the \emph{argmin} witness on each node's chain identifies the confidence bottleneck, a directly actionable query (Sec.~\ref{sec:queries}). Second, a single decayed credential or stale rehearsal at depth collapses the confidence of everything above it---which is not an artifact but the model faithfully reporting P1/P3 exposure, as the worked example demonstrates (Sec.~\ref{sec:feasibility}).
+
+\begin{remark}[Confidence is not probability]
+\label{rem:notprob}
+$C$ is an evidence-weighted index in $[0,1]$, suitable for ranking, trending, thresholding, and bottleneck localisation. It is \emph{not} a calibrated probability of successful recovery: no independence assumptions are made and none would be defensible. Calibrating $C$ against observed drill outcomes is an explicit direction of the evaluation design (RQ3) and of future work, in the spirit of dependency-aware availability estimation \citep{treynor2017calculus}.
+\end{remark}
+
+\subsection{Consistency}
+\label{sec:consistency}
+
+A Recovery Graph is a claim about the world and must be checked against it continuously. We define six mechanisable \emph{consistency rules}: (\textbf{C1}) \emph{node coverage}: every deployed service discovered by inventory or tracing has a node in $V$; (\textbf{C2}) \emph{classification totality}: $\gamma$ is total on $D$---no runtime edge is unassessed; (\textbf{C3}) \emph{referential executability}: every action's referenced assets resolve (runbook URLs live, image digests present, IaC references pinned); (\textbf{C4}) \emph{evidence liveness}: no node violates readiness silently---expired required evidence raises a finding; (\textbf{C5}) \emph{acyclicity and seeding}: W3--W4 re-verified on every graph change; (\textbf{C6}) \emph{seed externality}: each seed's recovery procedure and credentials are stored and evidenced outside every modelled failure domain (the rule the runbook-in-the-wiki violates). Each rule is checkable in time polynomial in $|V| + |\ER| + |D| + |\mathit{Ev}|$; C1--C2 violations over time constitute \emph{drift}, quantified in Sec.~\ref{sec:metrics}. The reference implementation (Sec.~\ref{sec:feasibility}) implements C2, C4, C5, and C6 exactly as stated.

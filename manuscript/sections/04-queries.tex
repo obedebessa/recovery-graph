@@ -1,0 +1,56 @@
+\section{Queryable recovery: operations and algorithms}
+\label{sec:queries}
+
+The model earns the adjective \emph{queryable} by supporting, with standard graph machinery, exactly the questions that Sec.~\ref{sec:pathologies} showed prose cannot answer. All operations below are implemented in the reference implementation.
+
+\subsection{Recovery paths and orders}
+
+\begin{definition}[Recovery path]
+\label{def:path}
+For $v \in V$, the \emph{hard closure} $\closure(v)$ is the set of nodes reachable from $v$ through hard edges of $\ER$ in the requires direction (transitive prerequisites). The \emph{recovery path} $P(v)$ is the sub-action-graph of $\mathcal{A}(\GR)$ induced by $\closure(v) \cup \{v\}$: everything that must happen, and every ordering constraint among those happenings, for $v$ to reach $\lO$ from total loss. The \emph{recovery path length} $\rpl(v)$ is reported as a pair: $\rpl_{\mathrm{hop}}(v)$, the number of edges on a longest hard chain ending at $v$, and $\rpl_{\mathrm{time}}(v) = \rto(v)$, its duration-weighted counterpart.
+\end{definition}
+
+Computing $\closure(v)$ and $\rpl_{\mathrm{hop}}$ is a reverse reachability and DAG-depth computation, $O(|V| + |\ER|)$; a valid execution order for any target set is a topological sort of the induced action graph \citep{kahn1962topological}; and $\rpl_{\mathrm{time}}$ comes from the critical-path propagation of Prop.~\ref{prop:schedule}. Algorithm~\ref{alg:schedule} states the schedule computation concretely; its output is precisely the data behind the timeline of Fig.~\ref{fig:schedule}.
+
+\begin{algorithm}[t]
+\small
+\caption{\textsc{EarliestSchedule}$(\GR)$ --- earliest start/finish and $\rto$ for all nodes.}
+\label{alg:schedule}
+\KwIn{well-formed $\GR$ with durations $d_v(\ell)$}
+\KwOut{$\mathit{ES}, \mathit{EF}$ over tasks; $\rto(v) = \mathit{EF}[(v,\lO)]$}
+$\mathcal{A} \leftarrow$ action graph of $\GR$ (Def.~\ref{def:actiongraph})\;
+\lIf{$\mathcal{A}$ has a cycle}{\Return \textsc{Infeasible} with its strongly connected components \citep{tarjan1972dfs}}
+\ForEach{task $t = (v,\ell)$ in topological order of $\mathcal{A}$}{
+  $\mathit{ES}[t] \leftarrow \max\{\mathit{EF}[p] : p \in \mathrm{pred}(t)\} \cup \{0\}$\;
+  $\mathit{EF}[t] \leftarrow \mathit{ES}[t] + d_v(\ell)$\;
+}
+\Return $\mathit{ES}, \mathit{EF}$\;
+\end{algorithm}
+
+\subsection{Bottlenecks: blocking centrality}
+\label{sec:blocking}
+
+Which node, if unrecoverable, hurts most? Under the hard-edge semantics recovery is \emph{conjunctive}---$v$ needs \emph{all} of $\closure(v)$---so the right necessity notion is membership in the closure, and the right centrality is:
+
+\begin{definition}[Blocking centrality]
+\label{def:blocking}
+$B(x) \;=\; \sum_{v \,:\, x \,\in\, \closure(v)} w_v$, the total criticality weight of nodes whose recovery transitively requires $x$.
+\end{definition}
+
+$B$ is computable for all $x$ in $O(|V| \cdot (|V| + |\ER|))$ by reverse reachability, and under conjunctive semantics it coincides exactly with \emph{counterfactual impact}: the weight rendered unrecoverable if $x$ is removed (Sec.~\ref{sec:counterfactual}). We note a subtlety that we ourselves initially got wrong: classical dominator analysis \citep{lengauer1979dominators} is \emph{not} the correct tool here, because dominators characterise unavoidability under \emph{or}-semantics (some path), whereas hard recovery dependencies compose with \emph{and}-semantics (all prerequisites)---under which \emph{every} closure member is unavoidable and the interesting quantity is how much weight sits above it. Dominator analysis becomes appropriate exactly when the model is extended with \emph{alternative recovery routes} (a node recoverable via snapshot restore \emph{or} rebuild-from-source): necessity across alternatives is then dominator membership in the route graph. We flag this and/or extension as future work and keep the base model conjunctive.
+
+\subsection{Cycles, seeds, and counterfactuals}
+\label{sec:counterfactual}
+
+\emph{Circular-bootstrap detection} is strongly-connected-component computation on $\mathcal{A}(\GR)$ \citep{tarjan1972dfs}: any non-trivial SCC in the hard core is a P2 finding, reported with its member actions so that engineers can break it (typically by re-homing an asset out of the failure domain, or by demoting an edge to soft with a documented degraded procedure). The level granularity of $\mathcal{A}$ keeps benign cross-level mutual references out of the findings (Sec.~\ref{sec:transitions}). \emph{Seed audit} checks W4/C6. The \emph{counterfactual operator} $\mathrm{cf}(x)$ removes $x$ and reports the set $\{v : x \in \closure(v)\}$ made unrecoverable and the $\rto$ deltas for the remainder; applied to sets, it answers scenario questions of the form ``what if the backup region and the registry are lost together?''
+
+\subsection{Mapping to property-graph query languages}
+\label{sec:mapping}
+
+$\GR$ maps directly onto the property-graph data model \citep{angles2017foundations}: node labels \textsf{Service}, \textsf{Resource} (with \textsf{seed}, \textsf{tier}, weight, durations, and current $\sigma$ as properties); a relationship type \textsf{REQUIRES} carrying $(\kappa, h, \theta, \pi)$; evidence as \textsf{Evidence} nodes linked by \textsf{EVIDENCED\_BY}, carrying class, timestamps, horizon, verdict, and provenance. Every operation of this section then becomes expressible in Cypher \citep{francis2018cypher} or, prospectively, in the ISO GQL standard \citep{iso2024gql}; closure and ordering use variable-length path patterns, and the metrics of Sec.~\ref{sec:metrics} are aggregation queries. Figure~\ref{fig:query} shows a representative governance query---expiring evidence on tier-1 recovery paths---and its result on the worked example: a single near-expired sandbox credential surfaces as a risk to three tier-1 services. The full schema and a query catalogue (recovery order for a target set; unready tier-1 services; confidence bottleneck per service; drift report) appear in \ref{app:queries}.
+
+\begin{figure*}[t]
+  \input{figures/fig7-query}
+  \caption{Queryability in practice: (a) a Cypher query over the property-graph mapping of $\GR$; (b) the result on the worked example of Sec.~\ref{sec:feasibility}. The query is a governance control, not an incident-time tool: it runs continuously, and its non-empty result is a finding.}
+  \label{fig:query}
+\end{figure*}

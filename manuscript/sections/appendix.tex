@@ -1,0 +1,80 @@
+\section{Proofs}
+\label{app:proofs}
+
+\paragraph{Theorem~\ref{thm:recoverability} (modelled recoverability)}
+\emph{Setting.} $\GR$ satisfies W1--W2; $\sigma_0 \equiv \lD$; runs obey Assumption A1 (levels never regress during a run).
+
+($\Leftarrow$) Assume $\mathcal{A}(\GR)$ acyclic and every source task owned by a seed. Fix a topological order $t_1, \ldots, t_m$ of $\mathcal{A}(\GR)$ and fire actions in that order. We show by induction on $i$ that $t_i$'s guard holds when fired. Every guard atom of $t_i = (v,\ell)$ is of the form $\sigma(x) \geq \pi$ and corresponds to an in-edge $(x,\pi) \to (v,\ell)$ of $\mathcal{A}(\GR)$ (Def.~\ref{def:actiongraph}), whose source precedes $t_i$ in the order; by the induction hypothesis $(x,\pi)$ has fired, so $\sigma(x) \geq \pi$ held at that point, and by A1 it still holds. If $t_i$ is a source task it has no cross-node atoms; W1 gives an executable action and seed membership (hypothesis (ii)) discharges its external means. Hence the full sequence is a run reaching $\sigma \equiv \lO$, and its restriction to $\closure(v) \cup \{v\}$ is a plan for any $v$.
+
+($\Rightarrow$) Contrapositive, two cases. \emph{(a)} If $\mathcal{A}(\GR)$ has a cycle $t_{i_1} \to \cdots \to t_{i_k} \to t_{i_1}$, consider any run and the first member of the cycle it fires, say $t_{i_j}$: its guard contains the atom contributed by the edge from $t_{i_{j-1}}$ (indices mod $k$), which has not fired, and under A1 no other mechanism establishes a level lower-bound; so no member fires first, and no node whose closure meets the cycle reaches $\lO$. \emph{(b)} If some source task $(x, \pi)$ belongs to a non-seed $x$, then $x$ has no in-graph prerequisites and, by definition of $B$, no external recovery means; no run advances $x$, and every node with $x$ in its closure is blocked. \hfill$\square$
+
+\paragraph{Proposition~\ref{prop:weakestlink} (weakest link)}
+Bounds: $\varphi \in [0,1]$ implies $\Eloc \in [0,1]$; the recursion multiplies values in $[0,1]$, so $C(v) \in [0,1]$. Domination: for any hard prerequisite $x$ of $v$, $C(v) = \Eloc(v) \cdot \min_{y \in \hardpre(v)} C(y) \cdot \Delta_s \leq \min_{y} C(y) \leq C(x)$; iterating along hard chains gives $C(v) \leq \min_{x \in \closure(v)} C(x)$. Evidence monotonicity: adding a passing item can only increase some $\max_e \varphi(e)$, hence $\Eloc$, and the recursion is monotone in each argument (product of non-decreasing maps; $\min$ is monotone); time monotonicity is the same argument applied to $\varphi$ non-increasing in age. \hfill$\square$
+
+\paragraph{Proposition~\ref{prop:schedule}} The unbounded-parallelism claim is the classical PERT/CPM longest-path argument over the DAG $\mathcal{A}(\GR)$ \citep{kelley1959critical}: earliest start of a task is the maximum earliest finish of its predecessors, computable in one topological pass; optimality follows because every schedule must respect every precedence, so no task can start earlier than the longest weighted chain into it. NP-hardness with $k$ bounded executors: taking all thresholds hard/start, unit durations for $(v,\lP)$ and zero for the others embeds precedence-constrained scheduling $P\,|\,\mathit{prec}\,|\,C_{\max}$, proved NP-hard by Ullman~\citep{ullman1975np}. \hfill$\square$
+
+\section{Property-graph schema and query catalogue}
+\label{app:queries}
+
+\noindent\textbf{Schema.} Node labels: \textsf{Service}, \textsf{Resource} --- properties \texttt{name}, \texttt{tier}, \texttt{weight}, \texttt{seed}, \texttt{sigma}, \texttt{durP/durF/durO}, \texttt{reqClasses}. Relationship \textsf{REQUIRES} --- properties \texttt{kind} $\in$ \{\texttt{order,data,verify,capacity,authz}\}, \texttt{hard}, \texttt{stage} $\in$ \{\texttt{start,complete}\}, \texttt{plevel}. Node label \textsf{Evidence} --- properties \texttt{class}, \texttt{producedAt}, \texttt{expiresAt}, \texttt{verdict}, \texttt{provenance}; relationship \textsf{EVIDENCED\_BY} from subject to evidence.
+
+\noindent\textbf{Q1: everything that must precede recovery of a target, with order.}
+\begin{lstlisting}[language=Cypher]
+MATCH p = (t:Service {name:$target})-[:REQUIRES* {hard:true}]->(x)
+RETURN DISTINCT x.name, max(length(p)) AS depth ORDER BY depth DESC
+\end{lstlisting}
+\noindent\textbf{Q2: tier-1 services that are not evidence-ready.}
+\begin{lstlisting}[language=Cypher]
+MATCH (s:Service {tier:1})
+WHERE any(c IN s.reqClasses WHERE NOT EXISTS {
+  MATCH (s)-[:EVIDENCED_BY]->(e:Evidence {class:c, verdict:'pass'})
+  WHERE e.expiresAt >= date() })
+RETURN s.name
+\end{lstlisting}
+\noindent\textbf{Q3: confidence bottleneck - the least-substantiated node on each tier-1 closure.}
+\begin{lstlisting}[language=Cypher]
+MATCH (s:Service {tier:1})-[:REQUIRES* {hard:true}]->(x)
+WITH s, x ORDER BY x.confidence ASC
+RETURN s.name, collect(x.name)[0] AS bottleneck, collect(x.confidence)[0] AS c
+\end{lstlisting}
+\begin{minipage}{\columnwidth}
+\noindent\textbf{Q4: counterfactual - weight made unrecoverable if $r$ is lost.}
+\begin{lstlisting}[language=Cypher]
+MATCH (v)-[:REQUIRES* {hard:true}]->(r {name:$resource})
+RETURN sum(v.weight) AS blockedWeight, collect(v.name) AS blocked
+\end{lstlisting}
+\end{minipage}
+
+\noindent (\texttt{x.confidence} denotes the materialised $C(x)$, recomputed on evidence or structure change; Q1's depth ordering realises the topological presentation of Sec.~\ref{sec:queries}.)
+
+\section{Worked-example instance data}
+\label{app:instance}
+
+Table~\ref{tab:pernode} lists the per-node computed values behind Figs.~\ref{fig:rgexample}--\ref{fig:schedule} and Table~\ref{tab:examplemetrics}; the full edge list (57 edges), the evidence scenario (35 items), the assumed durations, and the generating script are in the artifact. Durations are labelled assumptions of the illustration scenario, not measurements.
+
+\begin{table}[b]
+\centering\small
+\caption{Per-node computed values (output of \texttt{rgkit}; tier-1 and platform rows shown, alphabetical within group).}
+\label{tab:pernode}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}llccccl@{}}
+\toprule
+node & tier & ready & $\Eloc$ & $C$ & $\rpl_{\mathrm{hop}}$ & $\rto$ \\
+\midrule
+cart        & 1 & yes & 0.79 & 0.35 & 4 & 1\,h\,40 \\
+checkout    & 1 & yes & 0.63 & 0.01 & 5 & 1\,h\,55 \\
+frontend    & 1 & yes & 0.73 & 0.002 & 6 & 2\,h\,10 \\
+payment     & 1 & \textbf{no} & 0.46 & 0.02 & 3 & 1\,h\,25 \\
+redis-cart  & 1 & yes & 0.80 & 0.44 & 3 & 1\,h\,30 \\
+\midrule
+backup      & res & yes & 0.84 & 0.84 & 0 & 30\,m \\
+iac repo    & res & yes & 0.97 & 0.97 & 0 & 15\,m \\
+k8s         & res & yes & 0.84 & 0.81 & 1 & 1\,h\,00 \\
+obs         & res & yes & 0.68 & 0.55 & 2 & 1\,h\,20 \\
+pay-sandbox & res & \textbf{no} & 0.03 & 0.03 & 0 & 30\,m \\
+registry    & res & yes & 0.97 & 0.97 & 0 & 15\,m \\
+secrets     & res & yes & 0.61 & 0.61 & 0 & 15\,m \\
+\bottomrule
+\end{tabular}
+}
+\end{table}

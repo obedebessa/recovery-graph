@@ -1,0 +1,66 @@
+== Recovery Graph report: online-boutique ==
+  W3_acyclic_hard_core: True
+  C6_sources_are_seeds: []
+  C2_unclassified_runtime_edges: [('frontend', 'currency'), ('frontend', 'shipping')]
+  C4_nodes_missing_fresh_evidence: ['email', 'payment', 'paysandbox']
+-- metrics --
+  |V|: 19
+  |E_R|: 57
+  |D|: 15
+  density: 0.167
+  recovery_only_ratio: 0.754
+  RDC: 0.867
+  RRI: 0.844
+  REC: 0.922
+  RCS_weighted: 0.353
+  RCS_min_tier1: 0.002
+-- per-node (tier-1 and resources) --
+  node           tier ready  E_loc  C      RPL  RTO_est  
+  cart           1    True   0.79   0.35   4    1h40m    
+  checkout       1    True   0.63   0.01   5    1h55m    
+  frontend       1    True   0.73   0.00   6    2h10m    
+  payment        1    False  0.46   0.02   3    1h25m    
+  redis-cart     1    True   0.80   0.44   3    1h30m    
+  backup         2    True   0.84   0.84   0    30m      
+  currency       2    True   0.74   0.41   3    1h15m    
+  dns            2    True   0.89   0.89   0    20m      
+  iac            2    True   0.97   0.97   0    15m      
+  k8s            2    True   0.84   0.81   1    1h00m    
+  obs            2    True   0.68   0.55   2    1h20m    
+  paysandbox     2    False  0.03   0.03   0    30m      
+  productcatalog 2    True   0.74   0.41   3    1h15m    
+  registry       2    True   0.97   0.97   0    15m      
+  secrets        2    True   0.61   0.61   0    15m      
+  shipping       2    True   0.74   0.41   3    1h15m    
+  ad             3    True   0.52   0.29   3    1h15m    
+  email          3    False  0.46   0.25   3    1h15m    
+  recommendation 3    True   0.52   0.21   4    1h15m    
+-- blocking centrality (top 6, weighted) --
+  iac          B=26  blocks 13 nodes
+  k8s          B=25  blocks 12 nodes
+  registry     B=25  blocks 12 nodes
+  obs          B=24  blocks 11 nodes
+  secrets      B=13  blocks 5 nodes
+  backup       B=12  blocks 4 nodes
+-- critical path to frontend O --
+  iac:P@5m -> iac:F@10m -> k8s:P@35m -> k8s:F@50m -> redis-cart:P@1h00m -> redis-cart:F@1h20m -> cart:P@1h25m -> cart:F@1h30m -> checkout:P@1h35m -> checkout:F@1h45m -> checkout:O@1h55m -> frontend:O@2h10m
+-- schedule (finish of F and O per node, minutes) --
+  iac             P@     5  F@    10  O@    15
+  registry        P@     5  F@    10  O@    15
+  secrets         P@     5  F@    10  O@    15
+  dns             P@     5  F@    10  O@    20
+  backup          P@     5  F@    15  O@    30
+  paysandbox      P@     5  F@    10  O@    30
+  k8s             P@    35  F@    50  O@    60
+  productcatalog  P@    55  F@    60  O@    75
+  currency        P@    55  F@    60  O@    75
+  shipping        P@    55  F@    60  O@    75
+  email           P@    55  F@    60  O@    75
+  recommendation  P@    65  F@    70  O@    75
+  ad              P@    55  F@    60  O@    75
+  obs             P@    60  F@    70  O@    80
+  payment         P@    55  F@    65  O@    85
+  redis-cart      P@    60  F@    80  O@    90
+  cart            P@    85  F@    90  O@   100
+  checkout        P@    95  F@   105  O@   115
+  frontend        P@    95  F@   105  O@   130

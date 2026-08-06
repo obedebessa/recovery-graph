@@ -1,0 +1,47 @@
+\section{Motivation and problem analysis}
+\label{sec:motivation}
+
+We ground the model in recurring, documented failure patterns of operational recovery. We draw on primary post-incident reports published by the affected organisations and on systematic outage studies \citep{gunawi2016cloud,liu2019bugs,ghosh2022fight}; we return to the risk of anecdotal selection in Sec.~\ref{sec:threats}.
+
+\subsection{Five recovery pathologies}
+\label{sec:pathologies}
+
+\paragraph{P1: Recovery-only dependencies.}
+Recovering a service requires entities that the service never touches at runtime: container registries, infrastructure-as-code repositories, secret and key management systems, backup stores, identity providers, DNS control planes, out-of-band credentials. Because these dependencies are invisible to runtime observability---no trace ever crosses them---they are absent from every automatically discovered dependency graph, and their availability at recovery time is assumed rather than managed. The CrowdStrike remediation of July 2024 is a stark instance outside the cloud itself: the recovery procedure required BitLocker keys, and in multiple organisations the key-escrow systems were among the impacted machines \citep{crowdstrike2024rca,microsoft2024kb}. The 2021 OVHcloud data-centre fire showed the storage-layer variant: backups colocated with the primary site are a recovery dependency that fails jointly with what they protect \citep{reuters2021ovh}.
+
+\paragraph{P2: Circular bootstrap dependencies.}
+The transitive closure of recovery-only dependencies can contain cycles that only manifest under large-scale failure: the runbook wiki runs on the cluster the runbook rebuilds; the credential vault's unseal procedure is documented in the vault; the network-management tools reach devices over the network being repaired. Meta's October 2021 outage is the canonical public example---internal tooling and even physical-access systems depended on the failed network, materially slowing recovery \citep{meta2021outage}. Such cycles are invisible in steady state because they constrain only the \emph{order of return}, not normal operation.
+
+\paragraph{P3: Unverified recovery assets.}
+Backups that were never restored, failover paths never exercised, runbooks never executed since the architecture changed. GitLab's 2017 database incident documented five backup or replication mechanisms of which none yielded a working restore when needed \citep{gitlab2017postmortem}. Industry analyses repeatedly find that recovery procedures fail at first use \citep{uptime2024outage,adkins2020secure}; Google institutionalised disaster-recovery testing precisely because untested recovery knowledge decays silently \citep{krishnan2012weathering}. The epistemic point is general: \emph{the ability to recover is a claim that expires}, yet no common representation records when each such claim was last substantiated.
+
+\paragraph{P4: Unordered, capacity-blind restart.}
+When many services return simultaneously, retry storms, cold caches, and thundering-herd effects can hold a fully restored system in a degraded state---the metastable failure pattern \citep{bronson2021metastable,huang2022metastable}. AWS's Kinesis event of November 2020 required a deliberately slow, ordered restart of front-end fleets to avoid re-entering failure \citep{aws2020kinesis}; the December 2021 us-east-1 event similarly involved congestive collapse of an internal network during recovery attempts \citep{aws2021useast}. Recovery order and ramp rate are first-class constraints, but nowhere are they represented as data that a planner could consume.
+
+\paragraph{P5: Recovery knowledge as prose.}
+Where recovery knowledge exists, it lives in runbooks and wikis: unstructured, unverifiable, quickly stale, and unqueryable. Empirical studies of production incidents at a large cloud provider report outdated or incorrect troubleshooting documentation as a recurring aggravator \citep{ghosh2022fight,chen2020incident}; the SRE literature acknowledges the maintenance burden of playbooks even as it recommends them \citep{beyer2016sre}. Prose cannot answer ``what must be recovered before service $X$?'', ``which tier-1 services have no fresh restore evidence?'', or ``what is our best-case recovery time for checkout?''---questions that are answerable in seconds from a suitable data structure.
+
+\subsection{Why existing layers do not hold this knowledge}
+\label{sec:gap}
+
+Each layer of the cloud-native stack maintains a model of the system, and each model stops short of operational recovery. Declarative infrastructure and GitOps hold the \emph{desired infrastructure state} and can converge a cluster toward it \citep{morris2020iac,argocd}; the resource graphs of tools such as Terraform order the creation of \emph{resources}, not the return of \emph{capabilities} \citep{terraformgraph}. Distributed tracing yields the \emph{runtime call graph} \citep{sigelman2010dapper,luo2021characterizing}, which, as Sec.~\ref{sec:model} makes precise, is neither a subset nor a superset of the recovery dependency relation. Configuration management databases hold \emph{asset inventory and relationships} but no recovery semantics, evidence, or executable interpretation, and are notoriously stale \citep{itil2019}. Service catalogues record ownership metadata \citep{backstage}. Monitoring records \emph{current} health, not the preconditions of regaining health. Chaos engineering and DR drills \emph{generate} exactly the evidence that would substantiate recovery claims \citep{basiri2016chaos,rosenthal2020chaos,krishnan2012weathering}---but that evidence is filed in reports and tickets, not attached to the entities it substantiates. Table~\ref{tab:reqs} traces each pathology to the knowledge that no existing layer represents and to the requirement it induces.
+
+\begin{table*}[t]
+\centering\small
+\caption{From observed pathologies to model requirements.}
+\label{tab:reqs}
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+\textbf{Pathology} & \textbf{Missing machine-readable knowledge} & \textbf{Requirement} \\
+\midrule
+P1 recovery-only deps & entities needed only at recovery time, per service & \textbf{R1} model recovery-specific dependencies over services \emph{and} non-runtime resources \\
+P2 circular bootstrap & order-of-return constraints and their cycles & \textbf{R2} make dependency structure analysable (cycles, seeds, order) before incidents \\
+P3 unverified assets & when each recovery claim was last substantiated & \textbf{R3} attach expiring, verifiable evidence to recovery capabilities \\
+P4 capacity-blind restart & ordering, gating, and ramp constraints between services & \textbf{R4} distinguish capability levels and gate transitions on dependency state \\
+P5 prose knowledge & any queryable representation at all & \textbf{R5} support ad hoc queries and computed plans/estimates \\
+governance (cross-cutting) & auditable posture over time & \textbf{R6} yield metrics that are monotone in evidence and coverage, suitable for audit \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+Two clarifications bound the argument. First, we do not claim that organisations are ignorant of these pathologies---post-incident reviews name them routinely; we claim that the knowledge that would prevent them is not \emph{represented} anywhere that a machine, an auditor, or an incident commander can query. Second, the pathologies are drawn from public reports of large operators because only those are citable; the evaluation design (Sec.~\ref{sec:eval}) therefore includes modelling studies on independent systems to test whether the pathologies, and the model's coverage of them, generalise.
