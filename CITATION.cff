@@ -9,7 +9,8 @@ authors:
     orcid: "https://orcid.org/0009-0001-0787-5710"
     affiliation: "Independent Researcher, Clermont, Florida, United States"
 repository-code: "https://github.com/obedebessa/recovery-graph"
-url: "https://github.com/obedebessa/recovery-graph/blob/main/paper/Recovery_Graph_Preprint_v1.0.pdf"
+doi: "10.5281/zenodo.22017711"
+url: "https://doi.org/10.5281/zenodo.22017711"
 version: 1.0.0
 date-released: 2026-08-06
 keywords:
@@ -21,3 +22,14 @@ keywords:
   - digital resilience
   - microservices
   - graph queries
+preferred-citation:
+  type: article
+  title: "The Recovery Graph: A Formal Model for Queryable Operational Continuity in Cloud-Native Systems"
+  authors:
+    - given-names: "Obede Bessa"
+      family-names: "Rocha da Silva"
+      orcid: "https://orcid.org/0009-0001-0787-5710"
+  year: 2026
+  version: "1.0"
+  doi: "10.5281/zenodo.22017711"
+  url: "https://doi.org/10.5281/zenodo.22017711"

@@ -1,5 +1,7 @@
 # The Recovery Graph
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22017711.svg)](https://doi.org/10.5281/zenodo.22017711)
+
 This repository contains the IJCA-formatted manuscript and the reference artifact for:
 
 > Obede Bessa Rocha da Silva. “The Recovery Graph: A Formal Model for Queryable Operational Continuity in Cloud-Native Systems.” 2026.
@@ -9,6 +11,7 @@ The paper distinguishes infrastructure restoration from operational recovery and
 ## Read and cite the paper
 
 - [Read the searchable author preprint](paper/Recovery_Graph_Preprint_v1.0.pdf)
+- [Open the archived preprint and DOI](https://doi.org/10.5281/zenodo.22017711)
 - The cover identifies the manuscript as an unrefereed author version submitted
   to IJCA and uses the author's complete publication name.
 - Use GitHub's **Cite this repository** control for citation formats.
@@ -17,7 +20,7 @@ The paper distinguishes infrastructure restoration from operational recovery and
 
 > Rocha da Silva, O. B. (2026). *The Recovery Graph: A Formal Model for
 > Queryable Operational Continuity in Cloud-Native Systems* (Version 1.0)
-> [Preprint].
+> [Preprint]. Zenodo. https://doi.org/10.5281/zenodo.22017711
 
 **BibTeX**
 
@@ -27,7 +30,8 @@ The paper distinguishes infrastructure restoration from operational recovery and
   title   = {The Recovery Graph: A Formal Model for Queryable Operational Continuity in Cloud-Native Systems},
   year    = {2026},
   version = {1.0},
-  url     = {https://github.com/obedebessa/recovery-graph/blob/main/paper/Recovery_Graph_Preprint_v1.0.pdf},
+  doi     = {10.5281/zenodo.22017711},
+  url     = {https://doi.org/10.5281/zenodo.22017711},
   note    = {Preprint; unrefereed author version submitted to IJCA}
 }
 ```
