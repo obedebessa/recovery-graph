@@ -3,10 +3,13 @@ message: "If you use this work, please cite the manuscript."
 title: "The Recovery Graph: A Formal Model for Queryable Operational Continuity in Cloud-Native Systems"
 type: article
 authors:
-  - given-names: Obede
-    family-names: Bessa
+  - given-names: Obede Bessa
+    family-names: Rocha da Silva
     email: obedebessa@gmail.com
+    orcid: "https://orcid.org/0009-0001-0787-5710"
+    affiliation: "Independent Researcher, Clermont, Florida, United States"
 repository-code: "https://github.com/obedebessa/recovery-graph"
+url: "https://github.com/obedebessa/recovery-graph/blob/main/paper/Recovery_Graph_Preprint_v1.0.pdf"
 version: 1.0.0
 date-released: 2026-08-06
 keywords:
@@ -18,4 +21,3 @@ keywords:
   - digital resilience
   - microservices
   - graph queries
-
